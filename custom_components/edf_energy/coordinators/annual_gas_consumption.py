@@ -13,7 +13,7 @@ from ..const import (
     DOMAIN,
     REFRESH_RATE_IN_MINUTES_ACCOUNT,
 )
-from ..api_client import ApiException, EDFEnergyApiClient
+from ..api_client import ApiException, AuthenticationException, EDFEnergyApiClient
 from . import BaseCoordinatorResult
 
 _LOGGER = logging.getLogger(__name__)
@@ -47,6 +47,7 @@ async def async_refresh_annual_gas_consumption_data(
         return existing
 
     raised_exception = None
+    is_not_yet_eligible = False
     try:
         data = await client.async_get_annual_gas_consumption(target_mprn)
         if data is not None:
@@ -61,7 +62,15 @@ async def async_refresh_annual_gas_consumption_data(
         if not isinstance(e, ApiException):
             raise
         raised_exception = e
-        _LOGGER.debug(f'Failed to retrieve annual gas consumption for {target_mprn}')
+        is_not_yet_eligible = isinstance(e, AuthenticationException)
+        if is_not_yet_eligible:
+            _LOGGER.debug(
+                f"Annual gas consumption for {target_mprn} is not available "
+                "(AUTHORIZATION/KT-CT-1111) — this normally means the account hasn't "
+                "been with EDF long enough yet for an estimate to be calculated."
+            )
+        else:
+            _LOGGER.debug(f'Failed to retrieve annual gas consumption for {target_mprn}')
 
     if existing is not None:
         result = AnnualGasConsumptionCoordinatorResult(
@@ -74,11 +83,12 @@ async def async_refresh_annual_gas_consumption_data(
             existing.last_retrieved,
             last_error=raised_exception,
         )
-        if result.request_attempts == 2:
+        if result.request_attempts == 2 and not is_not_yet_eligible:
             _LOGGER.warning(f"Failed to retrieve annual gas consumption for {target_mprn} — using cached data.")
         return result
 
-    _LOGGER.warning(f"Failed to retrieve annual gas consumption for {target_mprn}.")
+    if not is_not_yet_eligible:
+        _LOGGER.warning(f"Failed to retrieve annual gas consumption for {target_mprn}.")
     return AnnualGasConsumptionCoordinatorResult(
         current - timedelta(minutes=REFRESH_RATE_IN_MINUTES_ACCOUNT),
         2, None, None, None, None,

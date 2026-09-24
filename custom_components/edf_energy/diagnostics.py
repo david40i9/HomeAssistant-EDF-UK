@@ -137,7 +137,7 @@ def _redact_account_info(account_info_raw: dict | None):
                 mappings[sn] = counter
                 meter["serial_number"] = counter
                 counter += 1
-            meter.pop("device_id", None)
+            meter["has_device_id"] = meter.pop("device_id", None) is not None
             meter.pop("meter_id", None)
         mpan = str(point.get("mpan", ""))
         if mpan:
@@ -152,7 +152,7 @@ def _redact_account_info(account_info_raw: dict | None):
                 mappings[sn] = counter
                 meter["serial_number"] = counter
                 counter += 1
-            meter.pop("device_id", None)
+            meter["has_device_id"] = meter.pop("device_id", None) is not None
             meter.pop("meter_id", None)
         mprn = str(point.get("mprn", ""))
         if mprn:

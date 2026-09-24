@@ -323,17 +323,22 @@ class RequestException(ApiException):
 class AuthenticationException(RequestException): ...
 
 
-def process_graphql_response(data: Any, url: str, request_context: str, ignore_errors: bool, accepted_error_codes: list[str]):
+def process_graphql_response(data: Any, url: str, request_context: str, ignore_errors: bool, accepted_error_codes: list[str], expected_error_codes: list[str] = []):
   if ("graphql" in url and "errors" in data and ignore_errors == False):
     msg = f'Errors in request ({url}) ({request_context}): {data["errors"]}'
     errors = list(map(lambda error: error["message"].strip(".,!"), data["errors"]))
     errors_as_string = ', '.join(errors)
-    _LOGGER.warning(msg)
+    error_codes = [(error.get("extensions") or {}).get("errorCode") for error in data["errors"]]
+    if expected_error_codes and all(code in expected_error_codes for code in error_codes):
+      # Known responses for some accounts (e.g. data EDF doesn't provide) - log quietly to avoid spam
+      _LOGGER.debug(msg)
+    else:
+      _LOGGER.warning(msg)
 
     for error in data["errors"]:
       if ("extensions" in error and
           "errorCode" in error["extensions"] and
-          error["extensions"]["errorCode"] in ("KT-CT-1139", "KT-CT-1111", "KT-CT-1143", "KT-CT-1134", "KT-CT-1135")):
+          error["extensions"]["errorCode"] in ("KT-CT-1138", "KT-CT-1139", "KT-CT-1111", "KT-CT-1143", "KT-CT-1134", "KT-CT-1135")):
         raise AuthenticationException(f"Authentication failed - {errors_as_string}. See logs for more details.", errors)
 
       if ("extensions" in error and
@@ -355,7 +360,8 @@ class EDFEnergyApiClient:
     if password is None:
       raise Exception('Password is not set')
 
-    self._email = email
+    # Trim whitespace picked up when pasting the email address, which EDF rejects as invalid credentials
+    self._email = email.strip()
     self._password = password
     self._base_url = EDF_BASE_URL
 
@@ -719,7 +725,7 @@ class EDFEnergyApiClient:
       }
       headers = {"Authorization": self._graphql_token, "context": "extended-electricity-consumption"}
       async with client.post(url, json=payload, headers=headers) as response:
-        body = await self.__async_read_response__(response, url)
+        body = await self.__async_read_response__(response, url, expected_error_codes=["KT-CT-1111"])
         if (body is not None and
             "data" in body and
             "extendedAnnualElectricityConsumption" in body["data"] and
@@ -747,7 +753,7 @@ class EDFEnergyApiClient:
       }
       headers = {"Authorization": self._graphql_token, "context": "annual-gas-consumption"}
       async with client.post(url, json=payload, headers=headers) as response:
-        body = await self.__async_read_response__(response, url)
+        body = await self.__async_read_response__(response, url, expected_error_codes=["KT-CT-1111"])
         if (body is not None and
             "data" in body and
             "annualGasConsumption" in body["data"] and
@@ -782,7 +788,7 @@ class EDFEnergyApiClient:
       }
       headers = { "Authorization": self._graphql_token, "context": "smart-meter-consumption" }
       async with client.post(url, json=payload, headers=headers) as response:
-        response_body = await self.__async_read_response__(response, url)
+        response_body = await self.__async_read_response__(response, url, expected_error_codes=["KT-GB-4039"])
 
         if (response_body is not None and
             "data" in response_body and
@@ -1255,7 +1261,7 @@ class EDFEnergyApiClient:
     readings.sort(key=lambda r: parse_datetime(r["read_at"]))
     return readings[-1]
 
-  async def __async_read_response__(self, response, url, ignore_errors=False, accepted_error_codes=[]):
+  async def __async_read_response__(self, response, url, ignore_errors=False, accepted_error_codes=[], expected_error_codes=[]):
     """Reads the response, logging any errors"""
     text = await response.text()
 
@@ -1295,4 +1301,4 @@ class EDFEnergyApiClient:
     except:
       raise Exception(f'Failed to extract response json: {url}; {text}')
 
-    return process_graphql_response(data_as_json, url, "edf-energy", ignore_errors, accepted_error_codes)
+    return process_graphql_response(data_as_json, url, "edf-energy", ignore_errors, accepted_error_codes, expected_error_codes)
