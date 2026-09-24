@@ -1,7 +1,7 @@
 # Modified from HomeAssistant-OctopusEnergy by BottlecapDave (MIT)
 # Modified by Bobby5291 2026 — adapted for EDF Energy / Kraken API
 
-DOMAIN = "edf_energy"
+DOMAIN = "edf_energy_uk"
 INTEGRATION_VERSION = "1.1.0"
 
 EDF_BASE_URL = "https://api.edfgb-kraken.energy"
@@ -74,21 +74,21 @@ DATA_KNOWN_TARIFF = "KNOWN_TARIFF"
 DATA_GAS_TARIFF_CODE = "GAS_TARIFF_CODE"
 
 # Storage
-STORAGE_ELECTRICITY_TARIFF_OVERRIDE_NAME = "edf_energy.{}-{}-tariff-override.json"
-STORAGE_TARIFF_CACHE_NAME = "edf_energy.tariff-{}.json"
-STORAGE_METER_DEBUG_OVERRIDE_NAME = "edf_energy.{}-{}-override.json"
-STORAGE_ACCOUNT_DEBUG_OVERRIDE_NAME = "edf_energy.{}-override.json"
+STORAGE_ELECTRICITY_TARIFF_OVERRIDE_NAME = "edf_energy_uk.{}-{}-tariff-override.json"
+STORAGE_TARIFF_CACHE_NAME = "edf_energy_uk.tariff-{}.json"
+STORAGE_METER_DEBUG_OVERRIDE_NAME = "edf_energy_uk.{}-{}-override.json"
+STORAGE_ACCOUNT_DEBUG_OVERRIDE_NAME = "edf_energy_uk.{}-override.json"
 
 # Events
-EVENT_ELECTRICITY_PREVIOUS_DAY_RATES = "edf_energy_electricity_previous_day_rates"
-EVENT_ELECTRICITY_CURRENT_DAY_RATES = "edf_energy_electricity_current_day_rates"
-EVENT_ELECTRICITY_NEXT_DAY_RATES = "edf_energy_electricity_next_day_rates"
-EVENT_ELECTRICITY_PREVIOUS_CONSUMPTION_RATES = "edf_energy_electricity_previous_consumption_rates"
+EVENT_ELECTRICITY_PREVIOUS_DAY_RATES = "edf_energy_uk_electricity_previous_day_rates"
+EVENT_ELECTRICITY_CURRENT_DAY_RATES = "edf_energy_uk_electricity_current_day_rates"
+EVENT_ELECTRICITY_NEXT_DAY_RATES = "edf_energy_uk_electricity_next_day_rates"
+EVENT_ELECTRICITY_PREVIOUS_CONSUMPTION_RATES = "edf_energy_uk_electricity_previous_consumption_rates"
 
-EVENT_GAS_PREVIOUS_DAY_RATES = "edf_energy_gas_previous_day_rates"
-EVENT_GAS_CURRENT_DAY_RATES = "edf_energy_gas_current_day_rates"
-EVENT_GAS_NEXT_DAY_RATES = "edf_energy_gas_next_day_rates"
-EVENT_GAS_PREVIOUS_CONSUMPTION_RATES = "edf_energy_gas_previous_consumption_rates"
+EVENT_GAS_PREVIOUS_DAY_RATES = "edf_energy_uk_gas_previous_day_rates"
+EVENT_GAS_CURRENT_DAY_RATES = "edf_energy_uk_gas_current_day_rates"
+EVENT_GAS_NEXT_DAY_RATES = "edf_energy_uk_gas_next_day_rates"
+EVENT_GAS_PREVIOUS_CONSUMPTION_RATES = "edf_energy_uk_gas_previous_consumption_rates"
 
 # Repairs
 REPAIR_INVALID_CREDENTIALS = "invalid_credentials_{}"

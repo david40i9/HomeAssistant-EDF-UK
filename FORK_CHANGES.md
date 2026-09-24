@@ -1,8 +1,15 @@
 # Fork changes
 
-This fork of [Bobby5291/HomeAssistant-EDF-UK](https://github.com/Bobby5291/HomeAssistant-EDF-UK) is based on upstream `main` (the `v1.9.9b` beta plus the NOTICE file) with extra fixes on top. The integration domain is unchanged (`edf_energy`), so it can replace the upstream install without losing entities or history.
+This fork of [Bobby5291/HomeAssistant-EDF-UK](https://github.com/Bobby5291/HomeAssistant-EDF-UK) is based on upstream `main` (the `v1.9.9b` beta plus the NOTICE file) with extra fixes on top. Fork version: **2.0.0** (shown in Home Assistant under the integration's details).
 
-Fork version: **1.9.8.7** (shown in Home Assistant under the integration's details).
+## 2.0.0: new internal name `edf_energy_uk`
+
+From 2.0.0 the integration's internal name (domain) is `edf_energy_uk` instead of `edf_energy`, so it can run alongside [stevekirtley's EDF Energy integration](https://github.com/stevekirtley/HomeAssistant-EDFEnergy), which uses `edf_energy`. This is a breaking change:
+
+- The integration must be removed and added again (as **EDF Energy UK**). Entity names are unchanged, so entity IDs normally come back the same.
+- The debugging service is now `edf_energy_uk.run_graphql_query`, and rate events are `edf_energy_uk_electricity_*` / `edf_energy_uk_gas_*`.
+- Energy dashboard statistics are now `edf_energy_uk:…`; re-select them in the Energy dashboard.
+- Diagnostics only include this integration's entities (previously any entity with `edf_energy` in its unique ID).
 
 ## Fixes added in this fork
 
@@ -46,7 +53,7 @@ The EDF integration was copied from Octopus Energy around v18.2/v18.3 (May 2026)
 - **[#1843](https://github.com/BottlecapDave/HomeAssistant-OctopusEnergy/issues/1843) Reconfigure reload deprecation.** Reconfiguring used `async_update_reload_and_abort` alongside an update listener, which Home Assistant warns about and stops supporting in 2026.12. It now uses `async_update_and_abort` and leaves the reload to the listener.
 - **[#1830](https://github.com/BottlecapDave/HomeAssistant-OctopusEnergy/issues/1830) State and device class changes not applied.** Sensors restore their previous attributes after a restart, which could carry an old `state_class`/`device_class` forward. These two keys are no longer restored.
 - **Token back-off after server errors**, as above.
-- **`edf_energy.run_graphql_query` service** (ported from Octopus). Runs a GraphQL query against the EDF API using the integration's existing login and returns the raw response, which makes diagnosing API changes possible without code changes. Unlike Octopus's version it is read-only (mutations are rejected) and admin-only; like Octopus's it is limited to once a minute.
+- **`edf_energy_uk.run_graphql_query` service** (ported from Octopus). Runs a GraphQL query against the EDF API using the integration's existing login and returns the raw response, which makes diagnosing API changes possible without code changes. Unlike Octopus's version it is read-only (mutations are rejected) and admin-only; like Octopus's it is limited to once a minute.
 
 Already present or not applicable: statistics `mean_type` (#1630/#1653), cost rounding accuracy (#1704), token refresh fixes, Cloudfront 403 handling (#1781), `async_get_device` deprecation (not used), multiple gas meter records (#1672, EDF sets up each meter separately), day/night time-window fix (EDF fetches day and night rates separately).
 

@@ -1,5 +1,5 @@
 # EDF UK Integration for Home Assistant
-[![Version](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fdavid40i9%2FHomeAssistant-EDF-UK%2Fmain%2Fcustom_components%2Fedf_energy%2Fmanifest.json&query=%24.version&label=version&style=for-the-badge)](FORK_CHANGES.md)
+[![Version](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fdavid40i9%2FHomeAssistant-EDF-UK%2Fmain%2Fcustom_components%2Fedf_energy_uk%2Fmanifest.json&query=%24.version&label=version&style=for-the-badge)](FORK_CHANGES.md)
 [![GitHub Stars](https://img.shields.io/github/stars/david40i9/HomeAssistant-EDF-UK.svg?style=for-the-badge)](https://github.com/david40i9/HomeAssistant-EDF-UK/stargazers)
 [![GitHub Watchers](https://img.shields.io/github/watchers/david40i9/HomeAssistant-EDF-UK.svg?style=for-the-badge)](https://github.com/david40i9/HomeAssistant-EDF-UK/watchers)
 [![GitHub Forks](https://img.shields.io/github/forks/david40i9/HomeAssistant-EDF-UK.svg?style=for-the-badge)](https://github.com/david40i9/HomeAssistant-EDF-UK/network)
@@ -51,14 +51,16 @@ Some data depends on your EDF account. For example, EDF doesn't provide annual c
 https://github.com/david40i9/HomeAssistant-EDF-UK
 ```
 
-4. Download **EDF Energy**
+4. Download **EDF Energy UK**
 5. Restart Home Assistant
 
-If you already have the original Bobby5291 repository installed through HACS, remove it from HACS first (this keeps your EDF integration entry and entities), then add this one.
+This integration's internal name is `edf_energy_uk`, so it can run alongside [stevekirtley's EDF Energy integration](https://github.com/stevekirtley/HomeAssistant-EDFEnergy) (`edf_energy`). Both log in to EDF separately.
+
+**Moving from the original Bobby5291 integration** (`edf_energy`): delete the EDF Energy integration entry in *Settings → Devices & Services*, remove the Bobby5291 repository from HACS, then install this one and add **EDF Energy UK**. Entity names are unchanged, so entity IDs normally come back the same, but it's worth checking your automations and dashboards afterwards. Energy dashboard statistics get new IDs (`edf_energy_uk:…`), so re-select them there.
 
 ### Manual Installation
 
-1. Copy the `custom_components/edf_energy` directory into your Home Assistant `custom_components` folder
+1. Copy the `custom_components/edf_energy_uk` directory into your Home Assistant `custom_components` folder
 2. Restart Home Assistant
 
 ---
@@ -68,7 +70,7 @@ If you already have the original Bobby5291 repository installed through HACS, re
 Add the integration from the Home Assistant UI:
 
 ```text
-Settings → Devices & Services → Add Integration → EDF Energy
+Settings → Devices & Services → Add Integration → EDF Energy UK
 ```
 
 You will need:
@@ -78,10 +80,10 @@ You will need:
 
 ### Debugging service
 
-`edf_energy.run_graphql_query` runs a read-only GraphQL query against the EDF API using the integration's login and returns the raw response. It's intended for diagnosing API problems: admin-only, queries only (no mutations), and limited to once a minute. Call it from Developer Tools → Actions:
+`edf_energy_uk.run_graphql_query` runs a read-only GraphQL query against the EDF API using the integration's login and returns the raw response. It's intended for diagnosing API problems: admin-only, queries only (no mutations), and limited to once a minute. Call it from Developer Tools → Actions:
 
 ```yaml
-action: edf_energy.run_graphql_query
+action: edf_energy_uk.run_graphql_query
 data:
   account_id: A-12345678
   query: "query ($acc: String!) { account(accountNumber: $acc) { balance } }"
@@ -93,7 +95,7 @@ data:
 
 ## Support
 
-- **Bugs:** please [open an issue](https://github.com/david40i9/HomeAssistant-EDF-UK/issues) and include a diagnostics download (Settings → Devices & Services → EDF Energy → ⋮ → Download diagnostics). Account and meter identifiers are redacted.
+- **Bugs:** please [open an issue](https://github.com/david40i9/HomeAssistant-EDF-UK/issues) and include a diagnostics download (Settings → Devices & Services → EDF Energy UK → ⋮ → Download diagnostics). Account and meter identifiers are redacted.
 - **Questions and ideas:** use [Discussions](https://github.com/david40i9/HomeAssistant-EDF-UK/discussions).
 
 Contributions, bug reports and testing are all appreciated, particularly from Smart Charging (EV) users.
@@ -112,6 +114,7 @@ https://edfenergy.com/quote/refer-a-friend/smoke-broom-457
 
 - **[Bobby5291](https://github.com/Bobby5291)** created the original [EDF UK integration](https://github.com/Bobby5291/HomeAssistant-EDF-UK) that this fork is based on.
 - **[BottlecapDave](https://github.com/BottlecapDave)** wrote the [Home Assistant Octopus Energy integration](https://github.com/BottlecapDave/HomeAssistant-OctopusEnergy). The EDF integration is heavily inspired by, and partially based on, it, and several fixes in this fork are ported from it. See [NOTICE](NOTICE).
+- **[stevekirtley](https://github.com/stevekirtley)** maintains a separate [EDF Energy integration](https://github.com/stevekirtley/HomeAssistant-EDFEnergy), also based on Octopus Energy, with EDF extras such as Sunday Saver and Power Perks. Worth a look.
 - Thanks to everyone who reported issues upstream with detailed logs.
 
 ---

@@ -143,7 +143,7 @@ Event entities fire when new rate data is available. The rates are in the event 
 | EDF Electricity Previous Day Rates ({serial}/{mpan}) | Yesterday's rates |
 | EDF Electricity Previous Consumption Rates ({serial}/{mpan}) | Rates used for the previous consumption calculation (disabled by default) |
 
-The same data is also fired on the Home Assistant event bus as `edf_energy_electricity_current_day_rates`, `edf_energy_electricity_next_day_rates`, `edf_energy_electricity_previous_day_rates`, `edf_energy_electricity_previous_consumption_rates` and the `edf_energy_gas_*` equivalents.
+The same data is also fired on the Home Assistant event bus as `edf_energy_uk_electricity_current_day_rates`, `edf_energy_uk_electricity_next_day_rates`, `edf_energy_uk_electricity_previous_day_rates`, `edf_energy_uk_electricity_previous_consumption_rates` and the `edf_energy_uk_gas_*` equivalents.
 
 ## Diagnostic entities
 
@@ -162,7 +162,7 @@ All disabled by default. Enable them if you're troubleshooting.
 
 | Service | What it does |
 |---|---|
-| `edf_energy.run_graphql_query` | Runs a read-only GraphQL query against the EDF API and returns the raw response. For debugging; admin-only, no mutations, once a minute. See the [README](../README.md#debugging-service). |
+| `edf_energy_uk.run_graphql_query` | Runs a read-only GraphQL query against the EDF API and returns the raw response. For debugging; admin-only, no mutations, once a minute. See the [README](../README.md#debugging-service). |
 
 ## Repairs
 
@@ -185,6 +185,6 @@ The integration imports EDF's half-hourly data as long-term statistics, backfill
 | Return to grid | *Electricity {serial} {mpan} Export Previous Accumulative Consumption* | *Electricity {serial} {mpan} Export Previous Accumulative Cost* |
 | Gas consumption | *Gas {serial} {mprn} Previous Accumulative Consumption (kWh)* | *Gas {serial} {mprn} Previous Accumulative Cost* |
 
-(Their IDs are `edf_energy:electricity_{serial}_{mpan}_previous_accumulative_consumption` and so on.)
+(Their IDs are `edf_energy_uk:electricity_{serial}_{mpan}_previous_accumulative_consumption` and so on.)
 
 Because EDF's data arrives a day or two late, the dashboard fills in past days once the data is published, rather than updating live.

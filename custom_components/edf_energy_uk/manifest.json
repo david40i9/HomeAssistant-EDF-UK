@@ -1,6 +1,6 @@
 {
-  "domain": "edf_energy",
-  "name": "EDF Energy",
+  "domain": "edf_energy_uk",
+  "name": "EDF Energy UK",
   "after_dependencies": ["recorder"],
   "codeowners": ["@Bobby5291"],
   "config_flow": true,
@@ -10,5 +10,5 @@
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/Bobby5291/ha-edf-energy/issues",
   "requirements": ["aiohttp>=3.8.1"],
-  "version": "1.9.8.7"
+  "version": "2.0.0"
 }

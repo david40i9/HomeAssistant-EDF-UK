@@ -43,7 +43,7 @@ async def async_get_config_entry_diagnostics(hass, entry):
     entity_info = {}
     for _eid, entry_obj in entity_registry.entities.items():
         uid = entry_obj.unique_id
-        if "edf_energy" not in uid:
+        if entry_obj.platform != DOMAIN:
             continue
         state = hass.states.get(entry_obj.entity_id)
         for key, val in redacted_mappings.items():
@@ -96,7 +96,7 @@ async def async_get_device_diagnostics(hass, entry, device):
     entity_info = {}
     for _eid, entry_obj in entity_registry.entities.items():
         uid = entry_obj.unique_id
-        if "edf_energy" not in uid:
+        if entry_obj.platform != DOMAIN:
             continue
         state = hass.states.get(entry_obj.entity_id)
         for key, val in redacted_mappings.items():
