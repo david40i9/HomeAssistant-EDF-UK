@@ -2,7 +2,7 @@
 
 import logging
 
-from homeassistant.components.sensor import SensorDeviceClass, SensorStateClass
+from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorStateClass
 from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity import EntityCategory
@@ -15,7 +15,7 @@ from ..coordinators.intelligent import IntelligentCoordinatorResult
 _LOGGER = logging.getLogger(__name__)
 
 
-class EDFEnergyIntelligentCurrentStateSensor(CoordinatorEntity, EDFEnergyIntelligentDevice, RestoreEntity):
+class EDFEnergyIntelligentCurrentStateSensor(CoordinatorEntity, EDFEnergyIntelligentDevice, SensorEntity, RestoreEntity):
     """Sensor showing the EV device's current SmartFlex state."""
 
     def __init__(self, hass: HomeAssistant, coordinator, account_id: str, device_info: dict):
@@ -68,7 +68,7 @@ class EDFEnergyIntelligentCurrentStateSensor(CoordinatorEntity, EDFEnergyIntelli
             self._state = state.state
 
 
-class EDFEnergyIntelligentDispatchesLastRetrieved(CoordinatorEntity, EDFEnergyIntelligentDevice):
+class EDFEnergyIntelligentDispatchesLastRetrieved(CoordinatorEntity, EDFEnergyIntelligentDevice, SensorEntity):
     """Diagnostic sensor — timestamp when dispatches were last fetched from EDF."""
 
     def __init__(self, hass: HomeAssistant, coordinator, account_id: str, device_info: dict):

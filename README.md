@@ -20,6 +20,8 @@ This is a maintained fork of [Bobby5291/HomeAssistant-EDF-UK](https://github.com
 - Previous-day consumption and cost for the Home Assistant Energy Dashboard
 - EDF Smart Charging (EV) support (not yet widely tested)
 
+See **[docs/ENTITIES.md](docs/ENTITIES.md)** for every sensor, control, event and service the integration exposes, what each one means, and how to set up the Energy dashboard.
+
 ---
 
 ## Current Status

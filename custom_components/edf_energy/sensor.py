@@ -332,4 +332,12 @@ async def async_setup_entry(hass: HomeAssistant, entry, async_add_entities):
                 entities.append(EDFEnergyGasWeeklyCost(hass, gas_cost_tracker_coordinator, meter, point))
                 entities.append(EDFEnergyGasMonthlyCost(hass, gas_cost_tracker_coordinator, meter, point))
 
+    # Smart Charging (EV) sensors
+    intelligent_device = hass.data[DOMAIN][account_id].get(DATA_INTELLIGENT_DEVICE_KEY.format(account_id))
+    if intelligent_device is not None:
+        intelligent_coordinator = hass.data[DOMAIN][account_id].get(DATA_INTELLIGENT_COORDINATOR_KEY.format(intelligent_device["id"]))
+        if intelligent_coordinator is not None:
+            entities.append(EDFEnergyIntelligentCurrentStateSensor(hass, intelligent_coordinator, account_id, intelligent_device))
+            entities.append(EDFEnergyIntelligentDispatchesLastRetrieved(hass, intelligent_coordinator, account_id, intelligent_device))
+
     async_add_entities(entities)

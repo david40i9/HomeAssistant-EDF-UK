@@ -2,7 +2,7 @@
 
 This fork of [Bobby5291/HomeAssistant-EDF-UK](https://github.com/Bobby5291/HomeAssistant-EDF-UK) is based on upstream `main` (the `v1.9.9b` beta plus the NOTICE file) with extra fixes on top. The integration domain is unchanged (`edf_energy`), so it can replace the upstream install without losing entities or history.
 
-Fork version: **1.9.8.6** (shown in Home Assistant under the integration's details).
+Fork version: **1.9.8.7** (shown in Home Assistant under the integration's details).
 
 ## Fixes added in this fork
 
@@ -56,6 +56,14 @@ Already present or not applicable: statistics `mean_type` (#1630/#1653), cost ro
 - **[#28](https://github.com/Bobby5291/HomeAssistant-EDF-UK/issues/28) / [#30](https://github.com/Bobby5291/HomeAssistant-EDF-UK/issues/30) Smart Charging never starts / entities missing.** Fixed in the upstream beta, which this fork includes.
 - **[#24](https://github.com/Bobby5291/HomeAssistant-EDF-UK/issues/24) Log spam and unknown sensors.** Meter readings, `grossAmount`, the EAC state class and the manifest version are fixed (see above). Expected EDF responses (`KT-GB-4039` live telemetry not available, `KT-CT-1111` annual consumption) are logged at debug instead of repeating as warnings; annual gas now gets the same handling as electricity. Diagnostics keep a `has_device_id` flag instead of dropping the field.
 - From PR #32: a disabled-by-default **EDF Auth Token Expiry** diagnostic sensor.
+
+### Smart Charging (EV)
+
+- **Missing sensors.** *EDF Intelligent Current State* and *EDF Intelligent Dispatches Last Retrieved* were written and imported but never created, and weren't `SensorEntity` subclasses. They're now proper sensors and are created when a Smart Charging device is present.
+
+### Documentation
+
+- **[docs/ENTITIES.md](docs/ENTITIES.md)** lists every entity, attribute, event, service and repair, generated from the code, plus Energy dashboard setup.
 
 ### Packaging
 
