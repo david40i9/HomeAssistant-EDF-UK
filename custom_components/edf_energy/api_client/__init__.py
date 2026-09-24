@@ -1218,7 +1218,18 @@ class EDFEnergyApiClient:
         _LOGGER.warning(msg)
         raise ServerException(msg)
       elif response.status in [401, 403]:
+        # Cloudfront errors can come back as a 403, so treat those as server errors rather than auth failures
+        if response.status == 403 and "The request could not be satisfied" in text and "cloudfront" in text:
+          msg = f'Response received - {url} - EDF Energy server error: {response.status}; {text}'
+          _LOGGER.info(msg)
+          raise ServerException(msg)
+
         msg = f'Response received - {url} - Unauthenticated request: {response.status}; {text}'
+        # Reset the GraphQL token and refresh token so that we re-authenticate on the next request
+        self._graphql_token = None
+        self._graphql_expiration = None
+        self._graphql_refresh_token = None
+        self._graphql_refresh_expiration = None
         _LOGGER.warning(msg)
         raise AuthenticationException(msg, [])
       elif response.status not in [404]:
