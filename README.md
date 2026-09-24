@@ -6,6 +6,8 @@
 [![License](https://img.shields.io/github/license/Bobby5291/HomeAssistant-EDF-UK.svg?style=for-the-badge)](LICENSE)
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-orange.svg?style=for-the-badge)](https://hacs.xyz/)
 
+> **Fork notice:** this is a fork of [Bobby5291/HomeAssistant-EDF-UK](https://github.com/Bobby5291/HomeAssistant-EDF-UK) with authentication and sensor fixes on top of the upstream beta. See [FORK_CHANGES.md](FORK_CHANGES.md) for details.
+
 A custom Home Assistant integration for retrieving and monitoring EDF UK smart meter energy data directly within Home Assistant.
 
 
