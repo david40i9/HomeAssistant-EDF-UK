@@ -69,6 +69,9 @@ class EDFEnergyElectricityMeterReading(CoordinatorEntity, EDFEnergyElectricitySe
         if result is not None and result.value is not None:
             self._state = result.value
             self._attributes["read_at"] = result.read_at
+            # Every register on the reading (e.g. day and night on Economy 7 meters); the state is the first
+            if result.registers:
+                self._attributes["registers"] = result.registers
         self._attributes = dict_to_typed_dict(self._attributes)
         super()._handle_coordinator_update()
 

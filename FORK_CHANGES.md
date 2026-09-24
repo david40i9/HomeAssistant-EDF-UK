@@ -2,7 +2,7 @@
 
 This fork of [Bobby5291/HomeAssistant-EDF-UK](https://github.com/Bobby5291/HomeAssistant-EDF-UK) is based on upstream `main` (the `v1.9.9b` beta plus the NOTICE file) with extra fixes on top. The integration domain is unchanged (`edf_energy`), so it can replace the upstream install without losing entities or history.
 
-Fork version: **1.9.8.5** (shown in Home Assistant under the integration's details).
+Fork version: **1.9.8.6** (shown in Home Assistant under the integration's details).
 
 ## Fixes added in this fork
 
@@ -31,6 +31,13 @@ Octopus's "API key invalid" lockout was deliberately not ported: with email/pass
 - **Last Payment.** EDF marks direct debit payments `isCredit: false`, so filtering on `isCredit` never found a payment. Payments are now identified by their GraphQL type (`__typename == "Payment"`).
 - **Direct Debit Amount.** This was never fetched. It now comes from the account's active `paymentSchedules` entry (`paymentAmount` in pence, plus `paymentDay`).
 - The internal meter id is removed from the diagnostics download, alongside the existing device id redaction.
+- **All registers exposed.** Meter reading sensors keep the first register as their state and add a `registers` attribute listing every register (e.g. day and night on Economy 7 meters). Readings EDF has quarantined as suspect are skipped.
+
+### Rates and standing charges (found with the GraphQL query service)
+
+- **Direct debit prices.** EDF's product endpoints return separate direct debit and non direct debit prices, and the integration mixed them, typically ending up with the higher non direct debit price. On one account this overstated gas at 7.57p/kWh and 36.7p/day against the 7.19p/kWh and 28.78p/day actually charged. Octopus Energy's filtering was ported, and the integration picks direct debit prices automatically when the account has an active direct debit.
+- **Export tariffs.** EDF refuses the REST product endpoints for export tariffs with a `401`, so export rate, standing charge and export cost sensors were permanently unknown. The account query now also fetches the unit rate and standing charge on each agreement, and the integration falls back to those when the product endpoints won't serve a tariff.
+- **401s from product endpoints no longer discard the login.** Those refusals are about the product, not the token, so they no longer clear the token and force a new email/password login. Many of the "Cannot authenticate with provided Kraken token" warnings seen on accounts with export came from here.
 
 ### Fixes from Octopus Energy's issue tracker
 
@@ -65,4 +72,5 @@ Already present or not applicable: statistics `mean_type` (#1630/#1653), cost ro
 ## Not yet resolved
 
 - Annual consumption (EAC/AQ) returns `KT-CT-1111` for some accounts; EDF indicates this is expected for newer accounts.
-- Meter readings report the first register only. On multi-register (day/night) meters this is one of the two registers.
+- Live smart meter telemetry (current demand / current consumption sensors) isn't provided by EDF for many meters (`KT-GB-4039`); those sensors stay unavailable.
+- Rate and standing charge sensors still use `monetary` + `total`. Octopus Energy v19 moved them to `measurement` for min/max/average statistics; that change would make Home Assistant ask to delete their existing statistics, so it hasn't been made.

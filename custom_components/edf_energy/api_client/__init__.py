@@ -129,11 +129,17 @@ account_query = '''query {{
               productCode
               tariffCode
               displayName
+              standingCharge
+            }}
+            ... on StandardTariff {{
+              unitRate
+              standingCharge
             }}
             ... on DayNightTariff {{
               productCode
               tariffCode
               displayName
+              standingCharge
             }}
             ... on FourRateEvTariff {{
               productCode
@@ -176,6 +182,10 @@ account_query = '''query {{
               tariffCode
               productCode
             }}
+            ... on GasTariffType {{
+              unitRate
+              standingCharge
+            }}
           }}
         }}
       }}
@@ -213,7 +223,9 @@ electricity_meter_readings_query = '''query ElectricityMeterReadings($accountNum
         readAt
         registers {
           identifier
+          name
           value
+          isQuarantined
         }
       }
     }
@@ -227,7 +239,9 @@ gas_meter_readings_query = '''query GasMeterReadings($accountNumber: String!, $m
         readAt
         registers {
           identifier
+          name
           value
+          isQuarantined
         }
       }
     }
@@ -267,7 +281,7 @@ def get_valid_from(rate):
 def get_start(rate):
   return (rate["start"].timestamp(), rate["start"].fold)
 
-def rates_to_thirty_minute_increments(data, period_from: datetime, period_to: datetime, tariff_code: str, price_cap: float = None):
+def rates_to_thirty_minute_increments(data, period_from: datetime, period_to: datetime, tariff_code: str, price_cap: float = None, favour_direct_debit_rates = True):
   """Process the collection of rates to ensure they're in 30 minute periods"""
   starting_period_from = period_from
   results = []
@@ -276,6 +290,15 @@ def rates_to_thirty_minute_increments(data, period_from: datetime, period_to: da
     items.sort(key=get_valid_from)
 
     for item in items:
+      # EDF returns separate direct debit and non direct debit prices - only use the ones that apply (ported from Octopus Energy)
+      if ("payment_method" in item and
+          item["payment_method"] is not None and
+          (
+            (item["payment_method"].lower() == "direct_debit" and favour_direct_debit_rates != True) or
+            (item["payment_method"].lower() != "direct_debit" and favour_direct_debit_rates != False)
+          )):
+        continue
+
       value_inc_vat = float(item["value_inc_vat"])
 
       is_capped = False
@@ -311,8 +334,16 @@ def rates_to_thirty_minute_increments(data, period_from: datetime, period_to: da
 
   return results
 
-def get_standing_charge(data: list, tariff_code: str):
+def get_standing_charge(data: list, tariff_code: str, favour_direct_debit_rates: bool = True):
   for item in data:
+    if ("payment_method" in item and
+        item["payment_method"] is not None and
+        (
+          (item["payment_method"].lower() == "direct_debit" and favour_direct_debit_rates != True) or
+          (item["payment_method"].lower() != "direct_debit" and favour_direct_debit_rates != False)
+        )):
+      continue
+
     return {
       "start": parse_datetime(item["valid_from"]) if "valid_from" in item and item["valid_from"] is not None else None,
       "end": parse_datetime(item["valid_to"]) if "valid_to" in item and item["valid_to"] is not None else None,
@@ -394,6 +425,13 @@ class EDFEnergyApiClient:
     self._session = None
     # Kraken internal meter IDs keyed by (mpan/mprn, serial number), needed for meter readings queries
     self._meter_ids = {}
+    # Unit rate / standing charge from each agreement, keyed by tariff code (see __record_agreement_rates)
+    self._agreement_rates = {}
+    # Tariffs the REST product endpoints refused, so we go straight to the agreement rates
+    self._unavailable_product_tariffs = set()
+    # Whether to use direct debit prices from the product endpoints. Updated from the account's
+    # direct debit status when it loads; defaults to direct debit as most accounts pay that way.
+    self._favour_direct_debit_rates = True
 
   @property
   def auth_token_expiry(self):
@@ -508,6 +546,25 @@ class EDFEnergyApiClient:
       self.__record_meter_ids(point.get("mpan"), point.get("meters") or [])
     for point in (account_info or {}).get("gas_meter_points") or []:
       self.__record_meter_ids(point.get("mprn"), point.get("meters") or [])
+    self.__record_agreement_rates(account_info)
+
+  def __record_agreement_rates(self, account_info):
+    """Keep the unit rate/standing charge EDF reports on each agreement (in pence), keyed by tariff code.
+
+    Used when the REST product endpoints won't serve a tariff (EDF refuses export products, for example).
+    Also picks direct debit or non direct debit product prices based on the account's direct debit.
+    """
+    if account_info is not None and "direct_debit_status" in account_info:
+      self._favour_direct_debit_rates = (account_info.get("direct_debit_status") or "").upper() == "ACTIVE"
+
+    for point in ((account_info or {}).get("electricity_meter_points") or []) + ((account_info or {}).get("gas_meter_points") or []):
+      for agreement in point.get("agreements") or []:
+        tariff_code = agreement.get("tariff_code")
+        if tariff_code is not None and (agreement.get("unit_rate") is not None or agreement.get("standing_charge") is not None):
+          self._agreement_rates[tariff_code] = {
+            "unit_rate": agreement.get("unit_rate"),
+            "standing_charge": agreement.get("standing_charge"),
+          }
 
   def __record_meter_ids(self, point_id, meters):
     for meter in meters:
@@ -562,6 +619,8 @@ class EDFEnergyApiClient:
         "tariff_code": a["tariff"]["tariffCode"] if "tariff" in a and "tariffCode" in a["tariff"] else None,
         "product_code": a["tariff"]["productCode"] if "tariff" in a and "productCode" in a["tariff"] else None,
         "display_name": a["tariff"]["displayName"] if "tariff" in a and "displayName" in a["tariff"] else None,
+        "unit_rate": a["tariff"].get("unitRate") if a.get("tariff") else None,
+        "standing_charge": a["tariff"].get("standingCharge") if a.get("tariff") else None,
       },
       meter_point["meterPoint"]["agreements"]
         if "meterPoint" in meter_point and "agreements" in meter_point["meterPoint"] and meter_point["meterPoint"]["agreements"] is not None
@@ -600,6 +659,8 @@ class EDFEnergyApiClient:
         "end": a["validTo"],
         "tariff_code": a["tariff"]["tariffCode"] if "tariff" in a and "tariffCode" in a["tariff"] else None,
         "product_code": a["tariff"]["productCode"] if "tariff" in a and "productCode" in a["tariff"] else None,
+        "unit_rate": a["tariff"].get("unitRate") if a.get("tariff") else None,
+        "standing_charge": a["tariff"].get("standingCharge") if a.get("tariff") else None,
       },
       meter_point["meterPoint"]["agreements"]
         if "meterPoint" in meter_point and "agreements" in meter_point["meterPoint"] and meter_point["meterPoint"]["agreements"] is not None
@@ -622,7 +683,11 @@ class EDFEnergyApiClient:
       headers = { "Authorization": self._graphql_token, "context": "run-graphql-query" }
       async with client.post(url, json=payload, headers=headers) as response:
         # Errors are returned to the caller as part of the response, rather than raised, so they can be inspected
-        body = await self.__async_read_response__(response, url, ignore_errors=True)
+        try:
+          body = await self.__async_read_response__(response, url, ignore_errors=True)
+        except RequestException as e:
+          # e.g. a 400 for an invalid query - return the message rather than failing the service call
+          return {"errors": [str(e)]}
         return body if body is not None else {}
 
     except TimeoutError:
@@ -649,7 +714,7 @@ class EDFEnergyApiClient:
 
           account = account_response_body["data"]["account"]
 
-          return {
+          account_info = {
             "id": account_id,
             "balance": account.get("balance"),
             "overdue_balance": account.get("overdueBalance"),
@@ -671,6 +736,8 @@ class EDFEnergyApiClient:
                 else []
             )),
           }
+          self.__record_agreement_rates(account_info)
+          return account_info
         else:
           _LOGGER.error("Failed to retrieve account")
 
@@ -1117,10 +1184,10 @@ class EDFEnergyApiClient:
       url = f'{self._base_url}/v1/products/{product_code}/electricity-tariffs/{tariff_code}/{endpoint}?period_from={period_from_str}&period_to={period_to_str}&page={page}'
       try:
         async with client.get(url, headers=headers) as response:
-          data = await self.__async_read_response__(response, url)
+          data = await self.__async_read_response__(response, url, is_product_endpoint=True)
           if data is None:
             return None
-          results = results + rates_to_thirty_minute_increments(data, period_from, period_to, tariff_code)
+          results = results + rates_to_thirty_minute_increments(data, period_from, period_to, tariff_code, None, self._favour_direct_debit_rates)
           has_more = "next" in data and data["next"] is not None
           if has_more:
             page += 1
@@ -1129,28 +1196,66 @@ class EDFEnergyApiClient:
 
     return results
 
+  def __agreement_rates(self, tariff_code: str, period_from: datetime, period_to: datetime):
+    """Flat 30 minute rates built from the unit rate on the account agreement, or None if unknown."""
+    unit_rate = (self._agreement_rates.get(tariff_code) or {}).get("unit_rate")
+    if unit_rate is None:
+      return None
+    return rates_to_thirty_minute_increments({"results": [{"value_inc_vat": unit_rate, "valid_from": None, "valid_to": None}]}, period_from, period_to, tariff_code)
+
+  def __agreement_standing_charge(self, tariff_code: str):
+    """Standing charge from the account agreement, or None if unknown."""
+    standing_charge = (self._agreement_rates.get(tariff_code) or {}).get("standing_charge")
+    if standing_charge is None:
+      return None
+    return { "start": None, "end": None, "value_inc_vat": float(standing_charge), "tariff_code": tariff_code }
+
+  def __mark_product_unavailable(self, tariff_code: str):
+    if tariff_code not in self._unavailable_product_tariffs:
+      self._unavailable_product_tariffs.add(tariff_code)
+      _LOGGER.info(f'EDF does not provide product rates for {tariff_code} - using the rates on the account agreement instead')
+
   async def async_get_electricity_rates(self, product_code: str, tariff_code: str, period_from: datetime, period_to: datetime):
     """Get electricity rates, handling single-rate and day/night tariffs."""
+    if tariff_code in self._unavailable_product_tariffs:
+      return self.__agreement_rates(tariff_code, period_from, period_to)
+
     try:
       client = self._create_client_session()
 
       # Try standard (single-rate) endpoint first
-      results = await self.__async_fetch_electricity_rates_endpoint(
-        client, product_code, tariff_code, "standard-unit-rates", period_from, period_to
-      )
+      try:
+        results = await self.__async_fetch_electricity_rates_endpoint(
+          client, product_code, tariff_code, "standard-unit-rates", period_from, period_to
+        )
+      except AuthenticationException:
+        fallback = self.__agreement_rates(tariff_code, period_from, period_to)
+        if fallback is None:
+          raise
+        self.__mark_product_unavailable(tariff_code)
+        return fallback
 
       if results is None:
         # Tariff has day/night rates — fetch both and combine
         _LOGGER.debug(f'Standard rates unavailable for {tariff_code}, trying day/night endpoints')
-        day_results = await self.__async_fetch_electricity_rates_endpoint(
-          client, product_code, tariff_code, "day-unit-rates", period_from, period_to
-        ) or []
-        night_results = await self.__async_fetch_electricity_rates_endpoint(
-          client, product_code, tariff_code, "night-unit-rates", period_from, period_to
-        ) or []
+        try:
+          day_results = await self.__async_fetch_electricity_rates_endpoint(
+            client, product_code, tariff_code, "day-unit-rates", period_from, period_to
+          ) or []
+          night_results = await self.__async_fetch_electricity_rates_endpoint(
+            client, product_code, tariff_code, "night-unit-rates", period_from, period_to
+          ) or []
+        except AuthenticationException:
+          fallback = self.__agreement_rates(tariff_code, period_from, period_to)
+          if fallback is None:
+            raise
+          self.__mark_product_unavailable(tariff_code)
+          return fallback
+
         results = day_results + night_results
         if not results:
-          return None
+          # Nothing from the product endpoints - use the agreement's unit rate if EDF gave us one
+          return self.__agreement_rates(tariff_code, period_from, period_to)
 
     except TimeoutError:
       _LOGGER.warning(f'Failed to connect. Timeout of {self._timeout} exceeded.')
@@ -1161,20 +1266,30 @@ class EDFEnergyApiClient:
 
   async def async_get_electricity_standing_charge(self, product_code: str, tariff_code: str, period_from: datetime, period_to: datetime):
     """Get the electricity standing charge"""
+    if tariff_code in self._unavailable_product_tariffs:
+      return self.__agreement_standing_charge(tariff_code)
+
     try:
       client = self._create_client_session()
       url = f'{self._base_url}/v1/products/{product_code}/electricity-tariffs/{tariff_code}/standing-charges?period_from={period_from.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")}&period_to={period_to.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")}'
       headers = { "Authorization": self._graphql_token, "context": "electricity-standing-charge" }
       async with client.get(url, headers=headers) as response:
-        data = await self.__async_read_response__(response, url)
+        try:
+          data = await self.__async_read_response__(response, url, is_product_endpoint=True)
+        except AuthenticationException:
+          fallback = self.__agreement_standing_charge(tariff_code)
+          if fallback is None:
+            raise
+          self.__mark_product_unavailable(tariff_code)
+          return fallback
         if (data is not None and "results" in data and len(data["results"]) > 0):
-          return get_standing_charge(data["results"], tariff_code)
+          return get_standing_charge(data["results"], tariff_code, self._favour_direct_debit_rates)
 
     except TimeoutError:
       _LOGGER.warning(f'Failed to connect. Timeout of {self._timeout} exceeded.')
       raise TimeoutException()
 
-    return None
+    return self.__agreement_standing_charge(tariff_code)
 
   async def async_get_electricity_consumption(self, mpan: str, serial_number: str, period_from: datetime = None, period_to: datetime = None, page_size: int = None):
     """Get the electricity consumption"""
@@ -1213,15 +1328,25 @@ class EDFEnergyApiClient:
 
   async def async_get_gas_rates(self, product_code: str, tariff_code: str, period_from: datetime, period_to: datetime):
     """Get the gas rates"""
+    if tariff_code in self._unavailable_product_tariffs:
+      return self.__agreement_rates(tariff_code, period_from, period_to)
+
     try:
       client = self._create_client_session()
       url = f'{self._base_url}/v1/products/{product_code}/gas-tariffs/{tariff_code}/standard-unit-rates?period_from={period_from.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")}&period_to={period_to.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")}'
       headers = { "Authorization": self._graphql_token, "context": "gas-rates" }
       async with client.get(url, headers=headers) as response:
-        data = await self.__async_read_response__(response, url)
+        try:
+          data = await self.__async_read_response__(response, url, is_product_endpoint=True)
+        except AuthenticationException:
+          fallback = self.__agreement_rates(tariff_code, period_from, period_to)
+          if fallback is None:
+            raise
+          self.__mark_product_unavailable(tariff_code)
+          return fallback
         if data is None:
-          return None
-        return rates_to_thirty_minute_increments(data, period_from, period_to, tariff_code)
+          return self.__agreement_rates(tariff_code, period_from, period_to)
+        return rates_to_thirty_minute_increments(data, period_from, period_to, tariff_code, None, self._favour_direct_debit_rates)
 
     except TimeoutError:
       _LOGGER.warning(f'Failed to connect. Timeout of {self._timeout} exceeded.')
@@ -1229,20 +1354,30 @@ class EDFEnergyApiClient:
 
   async def async_get_gas_standing_charge(self, product_code: str, tariff_code: str, period_from: datetime, period_to: datetime):
     """Get the gas standing charge"""
+    if tariff_code in self._unavailable_product_tariffs:
+      return self.__agreement_standing_charge(tariff_code)
+
     try:
       client = self._create_client_session()
       url = f'{self._base_url}/v1/products/{product_code}/gas-tariffs/{tariff_code}/standing-charges?period_from={period_from.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")}&period_to={period_to.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")}'
       headers = { "Authorization": self._graphql_token, "context": "gas-standing-charge" }
       async with client.get(url, headers=headers) as response:
-        data = await self.__async_read_response__(response, url)
+        try:
+          data = await self.__async_read_response__(response, url, is_product_endpoint=True)
+        except AuthenticationException:
+          fallback = self.__agreement_standing_charge(tariff_code)
+          if fallback is None:
+            raise
+          self.__mark_product_unavailable(tariff_code)
+          return fallback
         if (data is not None and "results" in data and len(data["results"]) > 0):
-          return get_standing_charge(data["results"], tariff_code)
+          return get_standing_charge(data["results"], tariff_code, self._favour_direct_debit_rates)
 
     except TimeoutError:
       _LOGGER.warning(f'Failed to connect. Timeout of {self._timeout} exceeded.')
       raise TimeoutException()
 
-    return None
+    return self.__agreement_standing_charge(tariff_code)
 
   async def async_get_gas_consumption(self, mprn: str, serial_number: str, period_from: datetime = None, period_to: datetime = None, page_size: int = None):
     """Get the gas consumption"""
@@ -1299,13 +1434,15 @@ class EDFEnergyApiClient:
     for edge in edges:
       node = edge.get("node") or {}
       read_at = node.get("readAt")
-      registers = node.get("registers") or []
+      # Skip registers EDF has quarantined as suspect
+      registers = [r for r in (node.get("registers") or []) if r.get("value") is not None and not r.get("isQuarantined")]
       if read_at is None or len(registers) == 0:
         continue
-      value = registers[0].get("value")
-      if value is None:
-        continue
-      readings.append({"read_at": read_at, "value": float(value)})
+      readings.append({
+        "read_at": read_at,
+        "value": float(registers[0]["value"]),
+        "registers": [{"name": r.get("name") or r.get("identifier"), "value": float(r["value"])} for r in registers],
+      })
 
     if not readings:
       return None
@@ -1313,8 +1450,12 @@ class EDFEnergyApiClient:
     readings.sort(key=lambda r: parse_datetime(r["read_at"]))
     return readings[-1]
 
-  async def __async_read_response__(self, response, url, ignore_errors=False, accepted_error_codes=[], expected_error_codes=[]):
-    """Reads the response, logging any errors"""
+  async def __async_read_response__(self, response, url, ignore_errors=False, accepted_error_codes=[], expected_error_codes=[], is_product_endpoint=False):
+    """Reads the response, logging any errors.
+
+    `is_product_endpoint` marks the REST /v1/products/ endpoints. EDF refuses some products (e.g. export tariffs)
+    with a 401 even though the token is valid, so those responses must not discard the token.
+    """
     text = await response.text()
 
     if response.status >= 400:
@@ -1330,6 +1471,11 @@ class EDFEnergyApiClient:
           raise ServerException(msg)
 
         msg = f'Response received - {url} - Unauthenticated request: {response.status}; {text}'
+        if is_product_endpoint:
+          # Product not available to this token - callers fall back to the rates on the account's agreement
+          _LOGGER.debug(msg)
+          raise AuthenticationException(msg, [])
+
         # Reset the GraphQL token and refresh token so that we re-authenticate on the next request
         self._graphql_token = None
         self._graphql_expiration = None

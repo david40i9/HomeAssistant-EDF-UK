@@ -22,14 +22,17 @@ _LOGGER = logging.getLogger(__name__)
 class ElectricityMeterReadingsCoordinatorResult(BaseCoordinatorResult):
     read_at: str | None
     value: float | None
+    registers: list | None
 
     def __init__(self, last_evaluated: datetime, request_attempts: int,
                  read_at, value,
                  last_retrieved: datetime | None = None,
-                 last_error: Exception | None = None):
+                 last_error: Exception | None = None,
+                 registers: list | None = None):
         super().__init__(last_evaluated, request_attempts, REFRESH_RATE_IN_MINUTES_ACCOUNT, last_retrieved, last_error)
         self.read_at = read_at
         self.value = value
+        self.registers = registers
 
 
 async def async_refresh_electricity_meter_readings_data(
@@ -49,7 +52,8 @@ async def async_refresh_electricity_meter_readings_data(
         data = await client.async_get_electricity_meter_readings(account_id, target_mpan, target_serial_number)
         if data is not None:
             return ElectricityMeterReadingsCoordinatorResult(
-                current, 1, data.get("read_at"), data.get("value")
+                current, 1, data.get("read_at"), data.get("value"),
+                registers=data.get("registers"),
             )
     except Exception as e:
         if not isinstance(e, ApiException):
@@ -64,6 +68,7 @@ async def async_refresh_electricity_meter_readings_data(
             existing.read_at, existing.value,
             existing.last_retrieved,
             last_error=raised_exception,
+            registers=existing.registers,
         )
 
     return ElectricityMeterReadingsCoordinatorResult(
