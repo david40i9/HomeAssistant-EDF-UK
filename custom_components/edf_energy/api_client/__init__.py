@@ -566,22 +566,6 @@ class EDFEnergyApiClient:
       ))
     }
 
-  async def async_debug_graphql(self, query: str, variables: dict | None = None):
-    """TEMPORARY debug probe helper: run a raw GraphQL query and return the unprocessed response."""
-    await self.async_refresh_token()
-    client = self._create_client_session()
-    url = f'{self._base_url}/v1/graphql/'
-    payload = {"query": query}
-    if variables is not None:
-      payload["variables"] = variables
-    headers = {"Authorization": self._graphql_token, "context": "debug-probe"}
-    async with client.post(url, json=payload, headers=headers) as response:
-      text = await response.text()
-      try:
-        return {"status": response.status, "body": json.loads(text)}
-      except Exception:
-        return {"status": response.status, "text": text[:2000]}
-
   async def async_get_account(self, account_id: str):
     """Get the user's account"""
     await self.async_refresh_token()

@@ -11,7 +11,6 @@ from homeassistant.util.dt import now
 from .const import CONFIG_ACCOUNT_ID, DATA_ACCOUNT, DATA_CLIENT, DOMAIN
 from .api_client import EDFEnergyApiClient, TimeoutException
 from .utils.attributes import dict_to_typed_dict
-from .debug_probe import async_run_debug_probe
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -54,21 +53,12 @@ async def async_get_config_entry_diagnostics(hass, entry):
             "last_changed": state.last_changed if state else None,
         }
 
-    # TEMPORARY debug probe - remove with debug_probe.py
-    debug_probe = None
-    if client is not None:
-        try:
-            debug_probe = await async_run_debug_probe(client, account_id, account_info_raw)
-        except Exception as e:
-            debug_probe = f"Failed: {type(e).__name__}: {e}"
-
     return {
         "timestamp_captured": now(),
         "account": account_info,
         "using_cached_account_data": account_info_raw is not None,
         "entities": entity_info,
         "config_entry": async_redact_data(config, _REDACT_CONFIG),
-        "debug_probe": debug_probe,
     }
 
 
