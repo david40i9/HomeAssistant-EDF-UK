@@ -2,7 +2,7 @@
 
 This fork of [Bobby5291/HomeAssistant-EDF-UK](https://github.com/Bobby5291/HomeAssistant-EDF-UK) is based on upstream `main` (the `v1.9.9b` beta plus the NOTICE file) with extra fixes on top. The integration domain is unchanged (`edf_energy`), so it can replace the upstream install without losing entities or history.
 
-Fork version: **1.9.8.3** (shown in Home Assistant under the integration's details).
+Fork version: **1.9.8.4** (shown in Home Assistant under the integration's details).
 
 ## Fixes added in this fork
 
@@ -17,7 +17,9 @@ These address intermittent `401 Cannot authenticate with provided Kraken token` 
 - **Recover after a 401.** A rejected token and refresh token are cleared, so the next update re-authenticates cleanly instead of reusing a token the server has rejected.
 - **Cloudfront 403s** ("The request could not be satisfied") are treated as server errors rather than authentication failures.
 
-Octopus's token-failure cooldown and "API key invalid" lockout were deliberately not ported: with email/password login, a single transient failure could stop the integration until Home Assistant restarts.
+- **Back off after server errors when logging in.** If fetching a token fails with a server error, retries wait 1, 2, 4, 8, 16, then 30 minutes, resetting after a success. Without this, every request retried a full email/password login, which keeps Kraken's rate limit tripped.
+
+Octopus's "API key invalid" lockout was deliberately not ported: with email/password login, a single failed login would stop the integration until Home Assistant restarts.
 
 ### Repairs and sensors
 
@@ -30,6 +32,16 @@ Octopus's token-failure cooldown and "API key invalid" lockout were deliberately
 - **Last Payment.** EDF marks direct debit payments `isCredit: false`, so filtering on `isCredit` never found a payment. Payments are now identified by their GraphQL type (`__typename == "Payment"`).
 - **Direct Debit Amount.** This was never fetched. It now comes from the account's active `paymentSchedules` entry (`paymentAmount` in pence, plus `paymentDay`).
 - The internal meter id is removed from the diagnostics download, alongside the existing device id redaction.
+
+### Fixes from Octopus Energy's issue tracker
+
+The EDF integration was copied from Octopus Energy around v18.2/v18.3 (May 2026). Every Octopus fix since then was reviewed; these applied to shared code:
+
+- **[#1843](https://github.com/BottlecapDave/HomeAssistant-OctopusEnergy/issues/1843) Reconfigure reload deprecation.** Reconfiguring used `async_update_reload_and_abort` alongside an update listener, which Home Assistant warns about and stops supporting in 2026.12. It now uses `async_update_and_abort` and leaves the reload to the listener.
+- **[#1830](https://github.com/BottlecapDave/HomeAssistant-OctopusEnergy/issues/1830) State and device class changes not applied.** Sensors restore their previous attributes after a restart, which could carry an old `state_class`/`device_class` forward. These two keys are no longer restored.
+- **Token back-off after server errors**, as above.
+
+Already present or not applicable: statistics `mean_type` (#1630/#1653), cost rounding accuracy (#1704), token refresh fixes, Cloudfront 403 handling (#1781), `async_get_device` deprecation (not used), multiple gas meter records (#1672, EDF sets up each meter separately), day/night time-window fix (EDF fetches day and night rates separately).
 
 ### Upstream issues addressed
 

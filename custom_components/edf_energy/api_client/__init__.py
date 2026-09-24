@@ -20,6 +20,21 @@ user_agent_value = "bobby5291-ha-edf-energy"
 
 EDF_BASE_URL = "https://api.edfgb-kraken.energy"
 
+# Kraken rate limits token retrieval. A failed attempt doesn't update our token expiry, so without a
+# cooldown every following request retries the login, which keeps the rate limit tripped.
+# Ported from HomeAssistant-OctopusEnergy.
+MINIMUM_TOKEN_RETRIEVAL_COOLDOWN_IN_MINUTES = 1
+MAXIMUM_TOKEN_RETRIEVAL_COOLDOWN_IN_MINUTES = 30
+
+
+def calculate_token_retrieval_cooldown(failure_count: int) -> timedelta:
+  """How long to wait before retrying token retrieval after consecutive server failures."""
+  if (failure_count < 1):
+    return timedelta(minutes=0)
+
+  minutes = MINIMUM_TOKEN_RETRIEVAL_COOLDOWN_IN_MINUTES * (2 ** (failure_count - 1))
+  return timedelta(minutes=min(minutes, MAXIMUM_TOKEN_RETRIEVAL_COOLDOWN_IN_MINUTES))
+
 api_token_query = '''mutation ObtainKrakenToken($email: String!, $password: String!) {
   obtainKrakenToken(input: { email: $email, password: $password }) {
     token
@@ -370,6 +385,8 @@ class EDFEnergyApiClient:
     self._graphql_refresh_token = None
     self._graphql_refresh_expiration = None
     self._refresh_token_lock = asyncio.Lock()
+    self._token_retrieval_failures = 0
+    self._token_retrieval_cooldown_until = None
 
     self._timeout = aiohttp.ClientTimeout(total=None, sock_connect=timeout_in_seconds, sock_read=timeout_in_seconds)
     self._default_headers = { "user-agent": f'{user_agent_value}/{INTEGRATION_VERSION}' }
@@ -409,6 +426,11 @@ class EDFEnergyApiClient:
       if (self._graphql_expiration is not None and (self._graphql_expiration - timedelta(minutes=5)) > now()):
         return
 
+      if (self._token_retrieval_cooldown_until is not None and self._token_retrieval_cooldown_until > now()):
+        msg = f"Token retrieval is in cooldown until {self._token_retrieval_cooldown_until} after {self._token_retrieval_failures} consecutive failure(s) - skipping refresh"
+        _LOGGER.debug(msg)
+        raise ServerException(msg)
+
       if (self._graphql_refresh_expiration is not None and self._graphql_refresh_expiration < now()):
         _LOGGER.debug("Refresh token expired - clearing")
         self._graphql_refresh_token = None
@@ -429,6 +451,14 @@ class EDFEnergyApiClient:
       except TimeoutError:
         _LOGGER.warning(f'Failed to connect. Timeout of {self._timeout} exceeded.')
         raise TimeoutException()
+      except ServerException:
+        self._token_retrieval_failures += 1
+        self._token_retrieval_cooldown_until = now() + calculate_token_retrieval_cooldown(self._token_retrieval_failures)
+        _LOGGER.debug(f"Failed to retrieve auth token {self._token_retrieval_failures} time(s) in a row - not attempting again until {self._token_retrieval_cooldown_until}")
+        raise
+
+      self._token_retrieval_failures = 0
+      self._token_retrieval_cooldown_until = None
 
   async def __async_fetch_token(self):
     client = self._create_client_session()

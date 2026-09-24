@@ -140,7 +140,8 @@ class EDFEnergyConfigFlow(ConfigFlow, domain=DOMAIN):
             )
 
             if len(errors) == 0:
-                return self.async_update_reload_and_abort(
+                # The update listener in __init__.py reloads the entry, so only update it here
+                return self.async_update_and_abort(
                     self._get_reconfigure_entry(),
                     data_updates=config,
                 )
