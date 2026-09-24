@@ -38,7 +38,7 @@ class EDFEnergyDirectDebitAmount(CoordinatorEntity, EDFEnergyAccountSensor, Rest
 
     @property
     def state_class(self):
-        return SensorStateClass.MEASUREMENT
+        return SensorStateClass.TOTAL
 
     @property
     def native_unit_of_measurement(self):
@@ -107,7 +107,7 @@ class EDFEnergyLastPayment(CoordinatorEntity, EDFEnergyAccountSensor, RestoreSen
 
     @property
     def state_class(self):
-        return SensorStateClass.MEASUREMENT
+        return SensorStateClass.TOTAL
 
     @property
     def native_unit_of_measurement(self):

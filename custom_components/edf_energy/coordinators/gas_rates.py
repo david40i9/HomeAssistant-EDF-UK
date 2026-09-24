@@ -188,8 +188,8 @@ async def async_setup_gas_rates_coordinator(hass, account_id: str, client: EDFEn
             target_serial_number,
             rates,
             hass.bus.async_fire,
-            lambda: async_raise_no_active_tariff(hass, account_id, target_mprn, target_serial_number),
-            lambda: async_remove_no_active_tariff(hass, target_mprn, target_serial_number),
+            lambda: hass.async_create_task(async_raise_no_active_tariff(hass, account_id, target_mprn, target_serial_number)),
+            lambda: hass.async_create_task(async_remove_no_active_tariff(hass, target_mprn, target_serial_number)),
             lambda tariff: raise_rates_empty(hass, account_id, tariff, target_mprn, target_serial_number, False),
             lambda tariff: clear_rates_empty(hass, account_id, tariff),
         )

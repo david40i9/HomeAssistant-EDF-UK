@@ -67,7 +67,7 @@ class EDFEnergyElectricityDayRate(CoordinatorEntity, EDFEnergyElectricitySensor,
 
     @property
     def state_class(self):
-        return SensorStateClass.MEASUREMENT
+        return SensorStateClass.TOTAL
 
     @property
     def device_class(self):
@@ -151,7 +151,7 @@ class EDFEnergyElectricityNightRate(CoordinatorEntity, EDFEnergyElectricitySenso
 
     @property
     def state_class(self):
-        return SensorStateClass.MEASUREMENT
+        return SensorStateClass.TOTAL
 
     @property
     def device_class(self):
