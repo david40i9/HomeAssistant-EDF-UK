@@ -1,4 +1,10 @@
 # EDF UK Integration for Home Assistant
+
+> [!IMPORTANT]
+> **Looking for an EDF integration?** [stevekirtley/HomeAssistant-EDFEnergy](https://github.com/stevekirtley/HomeAssistant-EDFEnergy) is the more mature and actively maintained EDF Energy integration, with tests, documentation and EDF extras such as free electricity sessions, Flextras, cost trackers and tariff comparison. **For most people, that's the one to use.**
+>
+> This fork is a personal project that fixes and extends [Bobby5291's integration](https://github.com/Bobby5291/HomeAssistant-EDF-UK). It includes a few things Steve's doesn't yet (account balance, payment and direct debit sensors, meter readings and a GraphQL debug service), which I hope to contribute there. The two can run side by side.
+
 [![Version](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fdavid40i9%2FHomeAssistant-EDF-UK%2Fmain%2Fcustom_components%2Fedf_energy_uk%2Fmanifest.json&query=%24.version&label=version&style=for-the-badge)](FORK_CHANGES.md)
 [![GitHub Stars](https://img.shields.io/github/stars/david40i9/HomeAssistant-EDF-UK.svg?style=for-the-badge)](https://github.com/david40i9/HomeAssistant-EDF-UK/stargazers)
 [![GitHub Watchers](https://img.shields.io/github/watchers/david40i9/HomeAssistant-EDF-UK.svg?style=for-the-badge)](https://github.com/david40i9/HomeAssistant-EDF-UK/watchers)
@@ -8,7 +14,7 @@
 
 A custom Home Assistant integration for retrieving and monitoring EDF UK smart meter energy data directly within Home Assistant.
 
-This is a maintained fork of [Bobby5291/HomeAssistant-EDF-UK](https://github.com/Bobby5291/HomeAssistant-EDF-UK), with fixes for authentication, meter readings, payments and several upstream issues. See [FORK_CHANGES.md](FORK_CHANGES.md) for the full list.
+This is a personal fork of [Bobby5291/HomeAssistant-EDF-UK](https://github.com/Bobby5291/HomeAssistant-EDF-UK), with fixes for authentication, rates, meter readings, payments and several upstream issues. See [FORK_CHANGES.md](FORK_CHANGES.md) for the full list.
 
 ---
 
