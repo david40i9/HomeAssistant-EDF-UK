@@ -3,7 +3,7 @@
 
 import logging
 from datetime import datetime, timedelta
-from typing import Callable, Any
+from typing import Awaitable, Callable, Any
 
 from homeassistant.util.dt import now, as_utc
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
@@ -46,8 +46,8 @@ async def async_refresh_gas_rates_data(
     target_serial_number: str,
     existing_rates_result: GasRatesCoordinatorResult | None,
     fire_event: Callable[[str, "dict[str, Any]"], None],
-    raise_no_active_rate: Callable[[], None] = None,
-    remove_no_active_rate: Callable[[], None] = None,
+    raise_no_active_rate: Callable[[], Awaitable[None]] = None,
+    remove_no_active_rate: Callable[[], Awaitable[None]] = None,
     raise_rates_empty_cb: Callable = None,
     clear_rates_empty_cb: Callable = None,
 ) -> GasRatesCoordinatorResult:
@@ -61,10 +61,10 @@ async def async_refresh_gas_rates_data(
     tariff = get_gas_meter_tariff(current, account_info, target_mprn, target_serial_number)
     if tariff is None:
         if raise_no_active_rate is not None:
-            raise_no_active_rate()
+            await raise_no_active_rate()
         return None
     elif remove_no_active_rate is not None:
-        remove_no_active_rate()
+        await remove_no_active_rate()
 
     new_rates = None
     raised_exception = None
@@ -188,8 +188,8 @@ async def async_setup_gas_rates_coordinator(hass, account_id: str, client: EDFEn
             target_serial_number,
             rates,
             hass.bus.async_fire,
-            lambda: hass.async_create_task(async_raise_no_active_tariff(hass, account_id, target_mprn, target_serial_number)),
-            lambda: hass.async_create_task(async_remove_no_active_tariff(hass, target_mprn, target_serial_number)),
+            lambda: async_raise_no_active_tariff(hass, account_id, target_mprn, target_serial_number),
+            lambda: async_remove_no_active_tariff(hass, target_mprn, target_serial_number),
             lambda tariff: raise_rates_empty(hass, account_id, tariff, target_mprn, target_serial_number, False),
             lambda tariff: clear_rates_empty(hass, account_id, tariff),
         )
