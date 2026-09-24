@@ -1,3 +1,5 @@
+import asyncio
+import base64
 import logging
 import json
 from typing import Any, List
@@ -334,7 +336,6 @@ def process_graphql_response(data: Any, url: str, request_context: str, ignore_e
 
 
 class EDFEnergyApiClient:
-  _refresh_token_lock = RLock()
   _session_lock = RLock()
 
   def __init__(self, email: str, password: str, timeout_in_seconds = 20):
@@ -351,6 +352,7 @@ class EDFEnergyApiClient:
     self._graphql_expiration = None
     self._graphql_refresh_token = None
     self._graphql_refresh_expiration = None
+    self._refresh_token_lock = asyncio.Lock()
 
     self._timeout = aiohttp.ClientTimeout(total=None, sock_connect=timeout_in_seconds, sock_read=timeout_in_seconds)
     self._default_headers = { "user-agent": f'{user_agent_value}/{INTEGRATION_VERSION}' }
@@ -378,11 +380,12 @@ class EDFEnergyApiClient:
     if (self._graphql_expiration is not None and (self._graphql_expiration - timedelta(minutes=5)) > now()):
       return
 
-    with self._refresh_token_lock:
+    async with self._refresh_token_lock:
+      # Check that our token wasn't refreshed while waiting for the lock
       if (self._graphql_expiration is not None and (self._graphql_expiration - timedelta(minutes=5)) > now()):
         return
 
-      if (self._graphql_refresh_expiration is not None and self._graphql_refresh_expiration >= now()):
+      if (self._graphql_refresh_expiration is not None and self._graphql_refresh_expiration < now()):
         _LOGGER.debug("Refresh token expired - clearing")
         self._graphql_refresh_token = None
         self._graphql_expiration = None
@@ -425,11 +428,25 @@ class EDFEnergyApiClient:
         self._graphql_token = token_response_body["data"]["obtainKrakenToken"]["token"]
         self._graphql_refresh_token = token_response_body["data"]["obtainKrakenToken"]["refreshToken"]
         self._graphql_refresh_expiration = datetime.fromtimestamp(token_response_body["data"]["obtainKrakenToken"]["refreshExpiresIn"], tz=timezone.utc)
-        self._graphql_expiration = now() + timedelta(hours=1)
-      elif (self._graphql_expiration is None or self._graphql_expiration > now()):
+        self._graphql_expiration = self.__decode_jwt_expiry(self._graphql_token)
+      elif (self._graphql_expiration is None or self._graphql_expiration < now()):
         raise AuthenticationException("Failed to retrieve auth token and current token is expired", [])
       else:
         _LOGGER.error("Failed to retrieve auth token")
+
+  def __decode_jwt_expiry(self, token: str):
+    try:
+      payload = token.split(".")[1]
+      payload += "=" * (-len(payload) % 4)
+      claims = json.loads(base64.urlsafe_b64decode(payload))
+
+      if "exp" in claims:
+        return datetime.fromtimestamp(claims["exp"], tz=timezone.utc)
+    except Exception:
+      _LOGGER.debug("Failed to decode JWT expiry", exc_info=True)
+
+    _LOGGER.debug("Falling back to default token expiration of 1 hour")
+    return now() + timedelta(hours=1)
 
   def map_electricity_meters(self, meter_point):
     is_export = (meter_point["meterPoint"]["direction"] == 'EXPORT') \
