@@ -68,6 +68,14 @@ account_query = '''query {{
         }}
       }}
     }}
+    paymentSchedules(active: true, first: 1) {{
+      edges {{
+        node {{
+          paymentAmount
+          paymentDay
+        }}
+      }}
+    }}
 
     electricityAgreements(active: true) {{
       meterPoint {{
@@ -76,6 +84,7 @@ account_query = '''query {{
         meters(includeInactive: false) {{
           activeFrom
           activeTo
+          id
           serialNumber
           makeAndType
           meterType
@@ -132,6 +141,7 @@ account_query = '''query {{
         meters(includeInactive: false) {{
           activeFrom
           activeTo
+          id
           serialNumber
           consumptionUnits
           modelName
@@ -163,6 +173,7 @@ transactions_query = '''query AccountTransactions($accountNumber: String!) {
     transactions(first: 10) {
       edges {
         node {
+          __typename
           postedDate
           ... on Payment {
             amounts { gross }
@@ -180,8 +191,8 @@ transactions_query = '''query AccountTransactions($accountNumber: String!) {
   }
 }'''
 
-electricity_meter_readings_query = '''query ElectricityMeterReadings($accountNumber: String!, $meterId: String!, $last: Int) {
-  electricityMeterReadings(accountNumber: $accountNumber, meterId: $meterId, last: $last) {
+electricity_meter_readings_query = '''query ElectricityMeterReadings($accountNumber: String!, $meterId: String!, $first: Int) {
+  electricityMeterReadings(accountNumber: $accountNumber, meterId: $meterId, first: $first) {
     edges {
       node {
         readAt
@@ -194,8 +205,8 @@ electricity_meter_readings_query = '''query ElectricityMeterReadings($accountNum
   }
 }'''
 
-gas_meter_readings_query = '''query GasMeterReadings($accountNumber: String!, $meterId: String!, $last: Int) {
-  gasMeterReadings(accountNumber: $accountNumber, meterId: $meterId, last: $last) {
+gas_meter_readings_query = '''query GasMeterReadings($accountNumber: String!, $meterId: String!, $first: Int) {
+  gasMeterReadings(accountNumber: $accountNumber, meterId: $meterId, first: $first) {
     edges {
       node {
         readAt
@@ -358,6 +369,8 @@ class EDFEnergyApiClient:
     self._default_headers = { "user-agent": f'{user_agent_value}/{INTEGRATION_VERSION}' }
 
     self._session = None
+    # Kraken internal meter IDs keyed by (mpan/mprn, serial number), needed for meter readings queries
+    self._meter_ids = {}
 
   async def async_close(self):
     with self._session_lock:
@@ -448,6 +461,18 @@ class EDFEnergyApiClient:
     _LOGGER.debug("Falling back to default token expiration of 1 hour")
     return now() + timedelta(hours=1)
 
+  def register_meter_ids(self, account_info):
+    """Seed meter IDs from previously mapped (e.g. cached) account info."""
+    for point in (account_info or {}).get("electricity_meter_points") or []:
+      self.__record_meter_ids(point.get("mpan"), point.get("meters") or [])
+    for point in (account_info or {}).get("gas_meter_points") or []:
+      self.__record_meter_ids(point.get("mprn"), point.get("meters") or [])
+
+  def __record_meter_ids(self, point_id, meters):
+    for meter in meters:
+      if meter.get("meter_id") is not None:
+        self._meter_ids[(str(point_id), str(meter["serial_number"]))] = str(meter["meter_id"])
+
   def map_electricity_meters(self, meter_point):
     is_export = (meter_point["meterPoint"]["direction"] == 'EXPORT') \
       if "meterPoint" in meter_point and "direction" in meter_point["meterPoint"] and meter_point["meterPoint"]["direction"] is not None \
@@ -457,6 +482,7 @@ class EDFEnergyApiClient:
       map(lambda m: {
         "active_from": parse_date(m["activeFrom"]) if m["activeFrom"] is not None else None,
         "active_to": parse_date(m["activeTo"]) if m["activeTo"] is not None else None,
+        "meter_id": m.get("id"),
         "serial_number": m["serialNumber"],
         "is_export": is_export if is_export is not None else m["smartExportElectricityMeter"] is not None,
         "is_smart_meter": f'{m["meterType"]}'.startswith("S1") or f'{m["meterType"]}'.startswith("S2"),
@@ -484,6 +510,7 @@ class EDFEnergyApiClient:
     )
 
     meters.sort(key=lambda meter: meter["active_from"], reverse=True)
+    self.__record_meter_ids(meter_point["meterPoint"]["mpan"], meters)
 
     return {
       "mpan": meter_point["meterPoint"]["mpan"],
@@ -506,6 +533,7 @@ class EDFEnergyApiClient:
       map(lambda m: {
         "active_from": parse_date(m["activeFrom"]) if m["activeFrom"] is not None else None,
         "active_to": parse_date(m["activeTo"]) if m["activeTo"] is not None else None,
+        "meter_id": m.get("id"),
         "serial_number": m["serialNumber"],
         "consumption_units": m["consumptionUnits"],
         "is_smart_meter": m["mechanism"] == "S1" or m["mechanism"] == "S2",
@@ -521,6 +549,7 @@ class EDFEnergyApiClient:
     )
 
     meters.sort(key=lambda meter: meter["active_from"], reverse=True)
+    self.__record_meter_ids(meter_point["meterPoint"]["mprn"], meters)
 
     return {
       "mprn": meter_point["meterPoint"]["mprn"],
@@ -582,6 +611,8 @@ class EDFEnergyApiClient:
             "recommended_balance_adjustment": account.get("recommendedBalanceAdjustment"),
             "can_renew_tariff": account.get("canRenewTariff"),
             "direct_debit_status": account["directDebitInstructions"]["edges"][0]["node"].get("status") if account.get("directDebitInstructions") and account["directDebitInstructions"].get("edges") else None,
+            "direct_debit_amount": account["paymentSchedules"]["edges"][0]["node"].get("paymentAmount") if account.get("paymentSchedules") and account["paymentSchedules"].get("edges") else None,
+            "direct_debit_payment_day": account["paymentSchedules"]["edges"][0]["node"].get("paymentDay") if account.get("paymentSchedules") and account["paymentSchedules"].get("edges") else None,
             "electricity_meter_points": list(map(self.map_electricity_meters,
               account["electricityAgreements"]
                 if "electricityAgreements" in account and account["electricityAgreements"] is not None
@@ -627,6 +658,7 @@ class EDFEnergyApiClient:
             amounts = node.get("amounts") or {}
             gross = amounts.get("gross")
             results.append({
+              "type": node.get("__typename"),
               "posted_date": node.get("postedDate"),
               "gross_amount": float(gross) if gross is not None else None,
               "is_credit": node.get("isCredit"),
@@ -640,13 +672,18 @@ class EDFEnergyApiClient:
 
   async def async_get_electricity_meter_readings(self, account_id: str, mpan: str, serial_number: str):
     """Get the latest electricity meter register reading via GraphQL."""
+    meter_id = self._meter_ids.get((str(mpan), str(serial_number)))
+    if meter_id is None:
+      _LOGGER.debug(f'No meter ID known yet for electricity meter {mpan}/{serial_number} - skipping readings')
+      return None
+
     await self.async_refresh_token()
     try:
       client = self._create_client_session()
       url = f'{self._base_url}/v1/graphql/'
       payload = {
         "query": electricity_meter_readings_query,
-        "variables": {"accountNumber": account_id, "meterId": serial_number, "last": 5},
+        "variables": {"accountNumber": account_id, "meterId": meter_id, "first": 5},
       }
       headers = {"Authorization": self._graphql_token, "context": "electricity-readings"}
       async with client.post(url, json=payload, headers=headers) as response:
@@ -659,13 +696,18 @@ class EDFEnergyApiClient:
 
   async def async_get_gas_meter_readings(self, account_id: str, mprn: str, serial_number: str):
     """Get the latest gas meter register reading via GraphQL."""
+    meter_id = self._meter_ids.get((str(mprn), str(serial_number)))
+    if meter_id is None:
+      _LOGGER.debug(f'No meter ID known yet for gas meter {mprn}/{serial_number} - skipping readings')
+      return None
+
     await self.async_refresh_token()
     try:
       client = self._create_client_session()
       url = f'{self._base_url}/v1/graphql/'
       payload = {
         "query": gas_meter_readings_query,
-        "variables": {"accountNumber": account_id, "meterId": serial_number, "last": 5},
+        "variables": {"accountNumber": account_id, "meterId": meter_id, "first": 5},
       }
       headers = {"Authorization": self._graphql_token, "context": "gas-readings"}
       async with client.post(url, json=payload, headers=headers) as response:

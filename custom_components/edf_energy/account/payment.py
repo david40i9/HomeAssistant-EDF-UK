@@ -133,8 +133,9 @@ class EDFEnergyLastPayment(CoordinatorEntity, EDFEnergyAccountSensor, RestoreSen
             else None
         )
         if result is not None and result.transactions:
-            # Find the most recent credit (payment) transaction
-            payments = [t for t in result.transactions if t.get("is_credit") is True]
+            # Find the most recent payment. EDF reports direct debit payments with isCredit false,
+            # so identify payments by their GraphQL type instead.
+            payments = [t for t in result.transactions if t.get("type") == "Payment"]
             if payments:
                 latest = payments[0]
                 gross = latest.get("gross_amount")

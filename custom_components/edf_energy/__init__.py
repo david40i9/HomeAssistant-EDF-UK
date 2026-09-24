@@ -185,6 +185,7 @@ async def async_setup_dependencies(hass, config):
             _LOGGER.warning(
                 f"Using cached account information for {account_id} — will retry automatically."
             )
+            client.register_meter_ids(account_info)
 
     # Store initial account result so coordinators have something to read immediately
     hass.data[DOMAIN][account_id][DATA_ACCOUNT] = AccountCoordinatorResult(
