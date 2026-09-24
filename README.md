@@ -74,6 +74,19 @@ You will need:
 - Your EDF UK account email and password
 - Your EDF account number
 
+### Debugging service
+
+`edf_energy.run_graphql_query` runs a read-only GraphQL query against the EDF API using the integration's login and returns the raw response. It's intended for diagnosing API problems: admin-only, queries only (no mutations), and limited to once a minute. Call it from Developer Tools → Actions:
+
+```yaml
+action: edf_energy.run_graphql_query
+data:
+  account_id: A-12345678
+  query: "query ($acc: String!) { account(accountNumber: $acc) { balance } }"
+  variables:
+    acc: A-12345678
+```
+
 ---
 
 ## Support

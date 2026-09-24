@@ -607,6 +607,28 @@ class EDFEnergyApiClient:
       ))
     }
 
+  async def async_run_graphql_query(self, query: str, variables: dict | None = None):
+    """Runs an arbitrary graphql query. This is intended to be used for debugging purposes only."""
+    await self.async_refresh_token()
+
+    try:
+      client = self._create_client_session()
+      url = f'{self._base_url}/v1/graphql/'
+
+      payload = { "query": query }
+      if variables is not None:
+        payload["variables"] = variables
+
+      headers = { "Authorization": self._graphql_token, "context": "run-graphql-query" }
+      async with client.post(url, json=payload, headers=headers) as response:
+        # Errors are returned to the caller as part of the response, rather than raised, so they can be inspected
+        body = await self.__async_read_response__(response, url, ignore_errors=True)
+        return body if body is not None else {}
+
+    except TimeoutError:
+      _LOGGER.warning(f'Failed to connect. Timeout of {self._timeout} exceeded.')
+      raise TimeoutException()
+
   async def async_get_account(self, account_id: str):
     """Get the user's account"""
     await self.async_refresh_token()

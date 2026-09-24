@@ -1,0 +1,23 @@
+run_graphql_query:
+  name: Run GraphQL query
+  description: Runs a read-only GraphQL query against the EDF (Kraken) API for a given account and returns the raw response. Intended for debugging. Mutations are rejected, only admins can call it, and it can only be called once every minute.
+  fields:
+    account_id:
+      name: Account id
+      description: The EDF account number the query should be run against (e.g. A-12345678).
+      required: true
+      selector:
+        text:
+    query:
+      name: Query
+      description: The GraphQL query to run.
+      required: true
+      selector:
+        text:
+          multiline: true
+    variables:
+      name: Variables
+      description: Optional variables to supply alongside the query.
+      required: false
+      selector:
+        object:

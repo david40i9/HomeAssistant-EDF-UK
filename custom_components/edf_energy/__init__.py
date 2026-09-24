@@ -2,11 +2,16 @@
 # Modified by Bobby5291 2026 — adapted for EDF Energy / Kraken API
 
 import logging
-from datetime import timedelta
+import re
+from datetime import datetime, timedelta
 
-from homeassistant.exceptions import ConfigEntryNotReady
+import voluptuous as vol
+import homeassistant.helpers.config_validation as cv
+
+from homeassistant.core import ServiceCall, SupportsResponse
+from homeassistant.exceptions import ConfigEntryNotReady, ServiceValidationError, Unauthorized
 from homeassistant.helpers import issue_registry as ir
-from homeassistant.util.dt import utcnow
+from homeassistant.util.dt import utcnow, as_local
 from homeassistant.const import EVENT_HOMEASSISTANT_STOP
 
 from .api_client import ApiException, AuthenticationException, EDFEnergyApiClient
@@ -55,6 +60,56 @@ from .const import (
 _LOGGER = logging.getLogger(__name__)
 
 ACCOUNT_PLATFORMS = ["sensor", "binary_sensor", "event", "switch", "number", "select", "calendar", "time"]
+
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
+
+RUN_GRAPHQL_QUERY_MINIMUM_INTERVAL = timedelta(minutes=1)
+
+
+async def async_setup(hass, config):
+    """Register integration-wide services."""
+    last_graphql_query_at: datetime | None = None
+
+    async def run_graphql_query(call: ServiceCall):
+        """Run a read-only GraphQL query against the EDF API for debugging (ported from Octopus Energy)."""
+        nonlocal last_graphql_query_at
+
+        user = await hass.auth.async_get_user(call.context.user_id) if call.context.user_id else None
+        if user is not None and not user.is_admin:
+            raise Unauthorized()
+
+        # Only queries are allowed, so this service can't change anything on the EDF account
+        if re.search(r'\bmutation\b', call.data["query"], re.IGNORECASE):
+            raise ServiceValidationError("Only GraphQL queries are allowed - mutations are not supported by this service")
+
+        current = utcnow()
+        if last_graphql_query_at is not None and (last_graphql_query_at + RUN_GRAPHQL_QUERY_MINIMUM_INTERVAL) > current:
+            raise ServiceValidationError(f"This service can only be called once every minute. Please try again after {as_local(last_graphql_query_at + RUN_GRAPHQL_QUERY_MINIMUM_INTERVAL).isoformat()}")
+
+        requested_account_id = call.data[CONFIG_ACCOUNT_ID]
+        accounts = hass.data.get(DOMAIN, {})
+        account_id = next((key for key in accounts if str(key).lower() == requested_account_id.lower()), None)
+        if account_id is None or DATA_CLIENT not in accounts[account_id]:
+            raise ServiceValidationError(f"Could not find an account with the id '{requested_account_id}'")
+
+        last_graphql_query_at = current
+
+        client: EDFEnergyApiClient = accounts[account_id][DATA_CLIENT]
+        return await client.async_run_graphql_query(call.data["query"], call.data.get("variables"))
+
+    hass.services.async_register(
+        DOMAIN,
+        "run_graphql_query",
+        run_graphql_query,
+        schema=vol.Schema({
+            vol.Required(CONFIG_ACCOUNT_ID): cv.string,
+            vol.Required("query"): cv.string,
+            vol.Optional("variables"): dict,
+        }),
+        supports_response=SupportsResponse.ONLY,
+    )
+
+    return True
 
 
 async def async_remove_config_entry_device(hass, config_entry, device_entry) -> bool:
