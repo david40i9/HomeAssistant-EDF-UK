@@ -4,107 +4,59 @@
 import json
 import logging
 import re
+from datetime import timedelta
+
+from homeassistant.util.dt import now
 
 from .api_client import EDFEnergyApiClient
 
 _LOGGER = logging.getLogger(__name__)
 
-_QUERY_FIELD_PATTERN = re.compile(r"reading|transaction|payment|directdebit|schedule", re.IGNORECASE)
-_ACCOUNT_FIELD_PATTERN = re.compile(r"transaction|payment|directdebit|schedule|reading", re.IGNORECASE)
-
 _TYPE_REF = "name kind ofType { name kind ofType { name kind ofType { name kind } } }"
-
-_QUERY_FIELDS = f'''query {{
-  __schema {{
-    queryType {{
-      fields {{
-        name
-        args {{ name type {{ {_TYPE_REF} }} }}
-        type {{ {_TYPE_REF} }}
-      }}
-    }}
-  }}
-}}'''
 
 _TYPE_QUERY = f'''query ($name: String!) {{
   __type(name: $name) {{
     name
     kind
     fields {{ name args {{ name type {{ {_TYPE_REF} }} }} type {{ {_TYPE_REF} }} }}
-    possibleTypes {{ name }}
+    enumValues {{ name }}
   }}
 }}'''
 
-_EXTRA_TYPES = [
-  "AccountType",
-  "TransactionType",
-  "Payment",
-  "Charge",
-  "Credit",
-  "Refund",
-  "TransactionAmountType",
-  "DirectDebitInstructionType",
-  "PaymentScheduleType",
+_TYPES = [
+  "ElectricityMeterReadingType",
+  "GasMeterReadingType",
+  "MeterReadingEventType",
+  "TransactionTypeFilter",
+  "ElectricityMeterType",
+  "GasMeterType",
 ]
 
-_ELEC_READINGS = '''query ($accountNumber: String!, $meterId: String!) {
-  electricityMeterReadings(accountNumber: $accountNumber, meterId: $meterId, %s) {
-    edges { node { readAt registers { identifier value } } }
-  }
-}'''
-
-_ELEC_READINGS_MINIMAL = '''query ($accountNumber: String!, $meterId: String!) {
-  electricityMeterReadings(accountNumber: $accountNumber, meterId: $meterId, first: 3) {
-    edges { node { readAt } }
-  }
-}'''
-
-_GAS_READINGS = '''query ($accountNumber: String!, $meterId: String!) {
-  gasMeterReadings(accountNumber: $accountNumber, meterId: $meterId, %s) {
-    edges { node { readAt registers { identifier value } } }
-  }
-}'''
-
-_TRANSACTIONS = '''query ($accountNumber: String!) {
+_METER_IDS = '''query ($accountNumber: String!) {
   account(accountNumber: $accountNumber) {
-    transactions(first: 5) {
-      edges {
-        node {
-          __typename
-          postedDate
-          title
-          isCredit
-          ... on Payment { amounts { gross net tax } }
-          ... on Charge { amounts { gross net tax } }
-        }
-      }
+    electricityAgreements(active: true) {
+      meterPoint { mpan direction meters(includeInactive: false) { id serialNumber } }
+    }
+    gasAgreements(active: true) {
+      meterPoint { mprn meters(includeInactive: false) { id serialNumber } }
     }
   }
 }'''
 
-_PAYMENT_SCHEDULES = '''query ($accountNumber: String!) {
-  account(accountNumber: $accountNumber) {
-    paymentSchedules(first: 3) {
-      edges { node { paymentAmount paymentDay validFrom validTo isVariablePaymentAmount } }
-    }
+_READINGS = '''query ($accountNumber: String!, $meterId: String!, $readFrom: DateTime) {
+  %s(accountNumber: $accountNumber, meterId: $meterId, readFrom: $readFrom, first: 5) {
+    totalCount
+    edges { node { %s } }
   }
 }'''
 
-
-def _unwrap_type_name(type_ref):
-  while type_ref is not None:
-    if type_ref.get("name"):
-      return type_ref["name"]
-    type_ref = type_ref.get("ofType")
-  return None
-
-
-def _filter_type(type_body, pattern):
-  if not type_body or not type_body.get("fields") or pattern is None:
-    return type_body
-  filtered = dict(type_body)
-  filtered["fields"] = [f for f in type_body["fields"] if pattern.search(f["name"])]
-  return filtered
+_PAYMENTS = '''query ($accountNumber: String!) {
+  account(accountNumber: $accountNumber) {
+    transactions(first: 3, transactionTypes: [PAYMENT]) {
+      edges { node { __typename postedDate title isCredit amounts { gross } ... on Payment { paymentTransactionType } } }
+    }
+  }
+}'''
 
 
 async def _run(client: EDFEnergyApiClient, query: str, variables=None):
@@ -114,78 +66,96 @@ async def _run(client: EDFEnergyApiClient, query: str, variables=None):
     return {"exception": f"{type(e).__name__}: {e}"}
 
 
+def _node_fields(type_body):
+  """Build a selection of scalar fields (plus registers sub-fields) for a reading node type."""
+  scalars = []
+  for field in (type_body or {}).get("fields") or []:
+    kind = field["type"].get("kind")
+    inner = field["type"].get("ofType") or {}
+    if kind == "SCALAR" or kind == "ENUM" or (kind == "NON_NULL" and inner.get("kind") in ("SCALAR", "ENUM")):
+      if not field.get("args"):
+        scalars.append(field["name"])
+  return " ".join(scalars) or "__typename"
+
+
 async def async_run_debug_probe(client: EDFEnergyApiClient, account_id: str, account_info: dict | None):
   results = {}
   sensitive = {account_id: "ACCOUNT"}
 
-  # 1. Schema: query fields relating to readings / transactions / payments
-  schema = await _run(client, _QUERY_FIELDS)
-  type_names = set(_EXTRA_TYPES)
-  try:
-    fields = schema["body"]["data"]["__schema"]["queryType"]["fields"]
-    matching = [f for f in fields if _QUERY_FIELD_PATTERN.search(f["name"])]
-    results["schema_query_fields"] = matching
-    for f in matching:
-      name = _unwrap_type_name(f.get("type"))
-      if name:
-        type_names.add(name)
-  except Exception:
-    results["schema_query_fields"] = schema
-
-  # 2. Schema: the types involved (AccountType filtered to relevant fields)
+  # 1. Reading, meter and filter types
   types = {}
-  for name in sorted(type_names):
+  for name in _TYPES:
     res = await _run(client, _TYPE_QUERY, {"name": name})
-    body = res.get("body", {}).get("data", {}).get("__type") if isinstance(res.get("body"), dict) else None
-    if body is None:
-      types[name] = res.get("body", res)
-      continue
-    types[name] = _filter_type(body, _ACCOUNT_FIELD_PATTERN) if name == "AccountType" else body
-    # Follow connection -> edge -> node types one level for reading/transaction connections
-    for field in body.get("fields") or []:
-      inner = _unwrap_type_name(field.get("type"))
-      if inner and inner not in type_names and re.search(r"reading|edge|transaction|register", inner, re.IGNORECASE):
-        inner_res = await _run(client, _TYPE_QUERY, {"name": inner})
-        types[inner] = inner_res.get("body", {}).get("data", {}).get("__type") if isinstance(inner_res.get("body"), dict) else inner_res
-  results["schema_types"] = types
+    body = res.get("body") if isinstance(res.get("body"), dict) else None
+    types[name] = (body or {}).get("data", {}).get("__type") if body else res
+  # Also the register type used by readings, if any
+  for reading_type in ("ElectricityMeterReadingType", "GasMeterReadingType"):
+    for field in (types.get(reading_type) or {}).get("fields") or []:
+      ref = field["type"]
+      while ref and not ref.get("name"):
+        ref = ref.get("ofType")
+      if ref and ref.get("kind") == "OBJECT" and ref["name"] not in types:
+        res = await _run(client, _TYPE_QUERY, {"name": ref["name"]})
+        body = res.get("body") if isinstance(res.get("body"), dict) else None
+        types[ref["name"]] = (body or {}).get("data", {}).get("__type") if body else res
+  results["types"] = types
 
-  # 3. Meter reading query variants
+  # 2. Internal meter IDs
+  meter_ids = await _run(client, _METER_IDS, {"accountNumber": account_id})
+  results["meter_ids"] = meter_ids
+
+  # 3. Readings using internal IDs (and serials again, with a readFrom window)
+  elec_fields = _node_fields(types.get("ElectricityMeterReadingType"))
+  gas_fields = _node_fields(types.get("GasMeterReadingType"))
+  read_from = (now() - timedelta(days=60)).isoformat()
   readings = {}
+  try:
+    account = meter_ids["body"]["data"]["account"]
+  except Exception:
+    account = None
+
+  for agreement in (account or {}).get("electricityAgreements") or []:
+    point = agreement.get("meterPoint") or {}
+    sensitive[str(point.get("mpan"))] = f"MPAN_{len(sensitive)}"
+    label = f"elec_{(point.get('direction') or 'unknown').lower()}"
+    for meter in point.get("meters") or []:
+      sensitive[str(meter.get("serialNumber"))] = f"SERIAL_{len(sensitive)}"
+      sensitive[str(meter.get("id"))] = f"METERID_{len(sensitive)}"
+      readings[f"{label}_id"] = await _run(client, _READINGS % ("electricityMeterReadings", elec_fields), {"accountNumber": account_id, "meterId": str(meter.get("id")), "readFrom": read_from})
+      readings[f"{label}_id_no_window"] = await _run(client, _READINGS % ("electricityMeterReadings", elec_fields), {"accountNumber": account_id, "meterId": str(meter.get("id")), "readFrom": None})
+      readings[f"{label}_serial_window"] = await _run(client, _READINGS % ("electricityMeterReadings", elec_fields), {"accountNumber": account_id, "meterId": str(meter.get("serialNumber")), "readFrom": read_from})
+
+  for agreement in (account or {}).get("gasAgreements") or []:
+    point = agreement.get("meterPoint") or {}
+    sensitive[str(point.get("mprn"))] = f"MPRN_{len(sensitive)}"
+    for meter in point.get("meters") or []:
+      sensitive[str(meter.get("serialNumber"))] = f"SERIAL_{len(sensitive)}"
+      sensitive[str(meter.get("id"))] = f"METERID_{len(sensitive)}"
+      readings["gas_id"] = await _run(client, _READINGS % ("gasMeterReadings", gas_fields), {"accountNumber": account_id, "meterId": str(meter.get("id")), "readFrom": read_from})
+      readings["gas_id_no_window"] = await _run(client, _READINGS % ("gasMeterReadings", gas_fields), {"accountNumber": account_id, "meterId": str(meter.get("id")), "readFrom": None})
+      readings["gas_serial_window"] = await _run(client, _READINGS % ("gasMeterReadings", gas_fields), {"accountNumber": account_id, "meterId": str(meter.get("serialNumber")), "readFrom": read_from})
+  results["readings"] = readings
+  results["reading_fields_used"] = {"electricity": elec_fields, "gas": gas_fields}
+
+  # 4. Payments only, via the transactionTypes filter
+  results["payments"] = await _run(client, _PAYMENTS, {"accountNumber": account_id})
+
+  # Also redact any IDs the integration already knows about
   for point in (account_info or {}).get("electricity_meter_points", []) or []:
-    mpan = str(point.get("mpan"))
-    sensitive[mpan] = f"MPAN_{len(sensitive)}"
+    sensitive[str(point.get("mpan"))] = f"MPAN_{len(sensitive)}"
     for meter in point.get("meters", []):
-      serial = str(meter.get("serial_number"))
-      sensitive[serial] = f"SERIAL_{len(sensitive)}"
-      label = f"elec_{'export' if meter.get('is_export') else 'import'}"
-      readings[f"{label}_serial_last5"] = await _run(client, _ELEC_READINGS % "last: 5", {"accountNumber": account_id, "meterId": serial})
-      readings[f"{label}_serial_first5"] = await _run(client, _ELEC_READINGS % "first: 5", {"accountNumber": account_id, "meterId": serial})
-      readings[f"{label}_serial_minimal"] = await _run(client, _ELEC_READINGS_MINIMAL, {"accountNumber": account_id, "meterId": serial})
-      readings[f"{label}_mpan_first5"] = await _run(client, _ELEC_READINGS % "first: 5", {"accountNumber": account_id, "meterId": mpan})
+      sensitive[str(meter.get("serial_number"))] = f"SERIAL_{len(sensitive)}"
       if meter.get("device_id"):
         sensitive[str(meter["device_id"])] = f"DEVICE_{len(sensitive)}"
-        readings[f"{label}_device_first5"] = await _run(client, _ELEC_READINGS % "first: 5", {"accountNumber": account_id, "meterId": str(meter["device_id"])})
-
   for point in (account_info or {}).get("gas_meter_points", []) or []:
-    mprn = str(point.get("mprn"))
-    sensitive[mprn] = f"MPRN_{len(sensitive)}"
+    sensitive[str(point.get("mprn"))] = f"MPRN_{len(sensitive)}"
     for meter in point.get("meters", []):
-      serial = str(meter.get("serial_number"))
-      sensitive[serial] = f"SERIAL_{len(sensitive)}"
-      readings["gas_serial_last5"] = await _run(client, _GAS_READINGS % "last: 5", {"accountNumber": account_id, "meterId": serial})
-      readings["gas_serial_first5"] = await _run(client, _GAS_READINGS % "first: 5", {"accountNumber": account_id, "meterId": serial})
-      readings["gas_mprn_first5"] = await _run(client, _GAS_READINGS % "first: 5", {"accountNumber": account_id, "meterId": mprn})
+      sensitive[str(meter.get("serial_number"))] = f"SERIAL_{len(sensitive)}"
       if meter.get("device_id"):
         sensitive[str(meter["device_id"])] = f"DEVICE_{len(sensitive)}"
-  results["meter_readings"] = readings
 
-  # 4. Transactions and payment schedules (raw)
-  results["transactions"] = await _run(client, _TRANSACTIONS, {"accountNumber": account_id})
-  results["payment_schedules"] = await _run(client, _PAYMENT_SCHEDULES, {"accountNumber": account_id})
-
-  # Redact account number, MPANs, MPRNs, serials and device IDs anywhere in the output
   text = json.dumps(results, default=str)
   for value, token in sorted(sensitive.items(), key=lambda kv: -len(kv[0])):
-    if value and value != "None":
-      text = re.sub(re.escape(value), token, text, flags=re.IGNORECASE)
+    if value and value != "None" and len(value) >= 4:
+      text = re.sub(r'(?<![A-Za-z0-9])' + re.escape(value) + r'(?![A-Za-z0-9])', token, text, flags=re.IGNORECASE)
   return json.loads(text)
