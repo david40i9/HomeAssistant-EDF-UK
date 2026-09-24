@@ -2,7 +2,7 @@
 
 This fork of [Bobby5291/HomeAssistant-EDF-UK](https://github.com/Bobby5291/HomeAssistant-EDF-UK) is based on upstream `main` (the `v1.9.9b` beta plus the NOTICE file) with extra fixes on top. The integration domain is unchanged (`edf_energy`), so it can replace the upstream install without losing entities or history.
 
-Fork version: **1.9.8.2** (shown in Home Assistant under the integration's details).
+Fork version: **1.9.8.3** (shown in Home Assistant under the integration's details).
 
 ## Fixes added in this fork
 
@@ -30,6 +30,13 @@ Octopus's token-failure cooldown and "API key invalid" lockout were deliberately
 - **Last Payment.** EDF marks direct debit payments `isCredit: false`, so filtering on `isCredit` never found a payment. Payments are now identified by their GraphQL type (`__typename == "Payment"`).
 - **Direct Debit Amount.** This was never fetched. It now comes from the account's active `paymentSchedules` entry (`paymentAmount` in pence, plus `paymentDay`).
 - The internal meter id is removed from the diagnostics download, alongside the existing device id redaction.
+
+### Upstream issues addressed
+
+- **[#27](https://github.com/Bobby5291/HomeAssistant-EDF-UK/issues/27) Invalid credentials on setup.** Login now passes credentials as GraphQL variables instead of pasting them into the query text, ported from Bobby's unmerged [PR #32](https://github.com/Bobby5291/HomeAssistant-EDF-UK/pull/32), so a password containing `"` or `\` no longer breaks the query. The email address is trimmed, and `KT-CT-1138` is reported as invalid credentials rather than an unknown error.
+- **[#28](https://github.com/Bobby5291/HomeAssistant-EDF-UK/issues/28) / [#30](https://github.com/Bobby5291/HomeAssistant-EDF-UK/issues/30) Smart Charging never starts / entities missing.** Fixed in the upstream beta, which this fork includes.
+- **[#24](https://github.com/Bobby5291/HomeAssistant-EDF-UK/issues/24) Log spam and unknown sensors.** Meter readings, `grossAmount`, the EAC state class and the manifest version are fixed (see above). Expected EDF responses (`KT-GB-4039` live telemetry not available, `KT-CT-1111` annual consumption) are logged at debug instead of repeating as warnings; annual gas now gets the same handling as electricity. Diagnostics keep a `has_device_id` flag instead of dropping the field.
+- From PR #32: a disabled-by-default **EDF Auth Token Expiry** diagnostic sensor.
 
 ### Packaging
 

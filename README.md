@@ -1,27 +1,24 @@
 # EDF UK Integration for Home Assistant
-[![GitHub Release](https://img.shields.io/github/release/Bobby5291/HomeAssistant-EDF-UK.svg?style=for-the-badge)](https://github.com/Bobby5291/HomeAssistant-EDF-UK/releases)
-[![GitHub Stars](https://img.shields.io/github/stars/Bobby5291/HomeAssistant-EDF-UK.svg?style=for-the-badge)](https://github.com/Bobby5291/HomeAssistant-EDF-UK/stargazers)
-[![GitHub Watchers](https://img.shields.io/github/watchers/Bobby5291/HomeAssistant-EDF-UK.svg?style=for-the-badge)](https://github.com/Bobby5291/HomeAssistant-EDF-UK/watchers)
-[![GitHub Forks](https://img.shields.io/github/forks/Bobby5291/HomeAssistant-EDF-UK.svg?style=for-the-badge)](https://github.com/Bobby5291/HomeAssistant-EDF-UK/network)
-[![License](https://img.shields.io/github/license/Bobby5291/HomeAssistant-EDF-UK.svg?style=for-the-badge)](LICENSE)
+[![Version](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fdavid40i9%2FHomeAssistant-EDF-UK%2Fmain%2Fcustom_components%2Fedf_energy%2Fmanifest.json&query=%24.version&label=version&style=for-the-badge)](FORK_CHANGES.md)
+[![GitHub Stars](https://img.shields.io/github/stars/david40i9/HomeAssistant-EDF-UK.svg?style=for-the-badge)](https://github.com/david40i9/HomeAssistant-EDF-UK/stargazers)
+[![GitHub Watchers](https://img.shields.io/github/watchers/david40i9/HomeAssistant-EDF-UK.svg?style=for-the-badge)](https://github.com/david40i9/HomeAssistant-EDF-UK/watchers)
+[![GitHub Forks](https://img.shields.io/github/forks/david40i9/HomeAssistant-EDF-UK.svg?style=for-the-badge)](https://github.com/david40i9/HomeAssistant-EDF-UK/network)
+[![License](https://img.shields.io/github/license/david40i9/HomeAssistant-EDF-UK.svg?style=for-the-badge)](LICENSE)
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-orange.svg?style=for-the-badge)](https://hacs.xyz/)
-
-> **Fork notice:** this is a fork of [Bobby5291/HomeAssistant-EDF-UK](https://github.com/Bobby5291/HomeAssistant-EDF-UK) with authentication and sensor fixes on top of the upstream beta. See [FORK_CHANGES.md](FORK_CHANGES.md) for details.
 
 A custom Home Assistant integration for retrieving and monitoring EDF UK smart meter energy data directly within Home Assistant.
 
-
-The aim of this integration is to provide EDF UK users with a seamless way to access electricity usage, tariff information, and energy monitoring within Home Assistant’s Energy Dashboard ecosystem.
+This is a maintained fork of [Bobby5291/HomeAssistant-EDF-UK](https://github.com/Bobby5291/HomeAssistant-EDF-UK), with fixes for authentication, meter readings, payments and several upstream issues. See [FORK_CHANGES.md](FORK_CHANGES.md) for the full list.
 
 ---
 
 ## Features
 
-- EDF UK account integration
-- Smart meter consumption data
-- Home Assistant Energy Dashboard support
-- Sensor entities for usage and costs
-- Ongoing development and improvements
+- EDF UK account integration (balances, direct debit, last payment, tariffs, contract end dates)
+- Electricity and gas rates, standing charges and cost tracking
+- Meter register readings for electricity (import and export) and gas
+- Previous-day consumption and cost for the Home Assistant Energy Dashboard
+- EDF Smart Charging (EV) support (not yet widely tested)
 
 ---
 
@@ -29,17 +26,14 @@ The aim of this integration is to provide EDF UK users with a seamless way to ac
 
 ### 🚧 Work in Progress
 
-This integration is under active development and is not yet considered production ready.
-
-You may encounter:
+This integration is still under development. You may encounter:
 
 - Breaking changes
 - Missing features
-- API instability
+- API changes on EDF's side
 - Limited documentation
-- Bugs and incomplete functionality
 
-Feedback, testing, and contributions are welcome.
+Some data depends on your EDF account. For example, EDF doesn't provide annual consumption estimates for newer accounts, or live smart meter telemetry for some meters. These are logged quietly and the related sensors stay unknown.
 
 ---
 
@@ -48,45 +42,62 @@ Feedback, testing, and contributions are welcome.
 ### HACS (Recommended)
 
 1. Open HACS in Home Assistant
-2. Navigate to **Integrations**
-3. Add this repository as a custom repository:
+2. Open the menu (⋮) and choose **Custom repositories**
+3. Add this repository with the category `Integration`:
 
 ```text
-https://github.com/Bobby5291/HomeAssistant-EDF-UK
+https://github.com/david40i9/HomeAssistant-EDF-UK
 ```
 
-4. Select category: `Integration`
-5. Install the integration
-6. Restart Home Assistant
+4. Download **EDF Energy**
+5. Restart Home Assistant
+
+If you already have the original Bobby5291 repository installed through HACS, remove it from HACS first (this keeps your EDF integration entry and entities), then add this one.
 
 ### Manual Installation
 
-1. Copy the `custom_components/edf_uk` directory into your Home Assistant `custom_components` folder
+1. Copy the `custom_components/edf_energy` directory into your Home Assistant `custom_components` folder
 2. Restart Home Assistant
-3. Add the integration via:
-
-```text
-Settings → Devices & Services → Add Integration
-```
 
 ---
 
 ## Configuration
 
-Configuration is currently handled through the Home Assistant UI.
+Add the integration from the Home Assistant UI:
+
+```text
+Settings → Devices & Services → Add Integration → EDF Energy
+```
 
 You will need:
 
-- Your EDF UK account credentials
-- Access to a supported smart meter account
+- Your EDF UK account email and password
+- Your EDF account number
+
+---
+
+## Support
+
+- **Bugs:** please [open an issue](https://github.com/david40i9/HomeAssistant-EDF-UK/issues) and include a diagnostics download (Settings → Devices & Services → EDF Energy → ⋮ → Download diagnostics). Account and meter identifiers are redacted.
+- **Questions and ideas:** use [Discussions](https://github.com/david40i9/HomeAssistant-EDF-UK/discussions).
+
+Contributions, bug reports and testing are all appreciated, particularly from Smart Charging (EV) users.
+
+---
+
+## Refer a Friend
+
+If you're switching to EDF, you can use this referral link:
+
+https://edfenergy.com/quote/refer-a-friend/smoke-broom-457
 
 ---
 
 ## Credits
 
-A huge thank you to [BottlecapDave](https://github.com/BottlecapDave) and the excellent [Home Assistant Octopus Energy Integration](https://github.com/BottlecapDave/HomeAssistant-OctopusEnergy) project.
-
-This integration is heavily inspired by, and partially based upon, that integration. Their work provided a strong reference for architecture, implementation patterns, and Home Assistant energy ecosystem support.
+- **[Bobby5291](https://github.com/Bobby5291)** created the original [EDF UK integration](https://github.com/Bobby5291/HomeAssistant-EDF-UK) that this fork is based on.
+- **[BottlecapDave](https://github.com/BottlecapDave)** wrote the [Home Assistant Octopus Energy integration](https://github.com/BottlecapDave/HomeAssistant-OctopusEnergy). The EDF integration is heavily inspired by, and partially based on, it, and several fixes in this fork are ported from it. See [NOTICE](NOTICE).
+- Thanks to everyone who reported issues upstream with detailed logs.
 
 ---
 
@@ -95,32 +106,20 @@ This integration is heavily inspired by, and partially based upon, that integrat
 This project is unofficial and is not affiliated with or endorsed by:
 
 - EDF Energy UK
+- Octopus Energy
 - Home Assistant
 
 Use at your own risk.
 
 ---
 
-## Contributing
-
-Contributions, bug reports, feature requests, and testing are all appreciated.
-
-Please open an issue or pull request on GitHub.
-
----
-
-## Development
-I plant to continue to add new features as this project is still a work in progress
-
----
-
-## Affiliate Link
-https://edfenergy.com/quote/refer-a-friend/bold-mouse-849
-
---
 ## License
 
-Licensed under the Apache License, Version 2.0.
+Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE).
 
 ```text
 Copyright 2026 Bobby5291
+Modifications copyright 2026 david40i9
+```
+
+Portions are derived from HomeAssistant-OctopusEnergy under the MIT License. See [NOTICE](NOTICE).
