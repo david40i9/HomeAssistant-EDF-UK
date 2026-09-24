@@ -16,7 +16,6 @@ These address intermittent `401 Cannot authenticate with provided Kraken token` 
 - **Token lifetime read from the token.** Expiry now comes from the JWT `exp` claim instead of assuming one hour (falls back to one hour if it can't be decoded).
 - **Recover after a 401.** A rejected token and refresh token are cleared, so the next update re-authenticates cleanly instead of reusing a token the server has rejected.
 - **Cloudfront 403s** ("The request could not be satisfied") are treated as server errors rather than authentication failures.
-
 - **Back off after server errors when logging in.** If fetching a token fails with a server error, retries wait 1, 2, 4, 8, 16, then 30 minutes, resetting after a success. Without this, every request retried a full email/password login, which keeps Kraken's rate limit tripped.
 
 Octopus's "API key invalid" lockout was deliberately not ported: with email/password login, a single failed login would stop the integration until Home Assistant restarts.
