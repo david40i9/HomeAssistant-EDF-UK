@@ -18,17 +18,6 @@ _REDACT_CONFIG = {CONFIG_ACCOUNT_ID, "email", "password", "refresh_token"}
 _SKIP_ATTRIBUTES = {"mpan", "mprn", "serial_number", "friendly_name", "icon", "unit_of_measurement", "device_class", "state_class", "account_id"}
 
 
-async def _get_recent_device_consumption(client: EDFEnergyApiClient, device_id: str):
-    current = now()
-    try:
-        data = await client.async_get_smart_meter_consumption(device_id, current - timedelta(minutes=120), current)
-        if data and len(data) > 0:
-            return data[-1]
-        return "No data available"
-    except Exception as e:
-        return f"Failed: {e}"
-
-
 async def async_get_config_entry_diagnostics(hass, entry):
     """Return diagnostics for the config entry (lightweight — timestamps only)."""
     config = dict(entry.data)
@@ -81,8 +70,6 @@ async def async_get_device_diagnostics(hass, entry, device):
                     meter["latest_consumption"] = readings[-1]["end"] if readings else "No data"
                 except TimeoutException:
                     meter["latest_consumption"] = "Timeout"
-                if meter.get("device_id"):
-                    meter["latest_device_consumption"] = await _get_recent_device_consumption(client, meter["device_id"])
 
         for point in account_info.get("gas_meter_points", []) or []:
             for meter in point.get("meters", []):

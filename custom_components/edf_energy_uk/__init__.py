@@ -21,7 +21,6 @@ from .coordinators.electricity_rates import async_setup_electricity_rates_coordi
 from .coordinators.electricity_standing_charges import async_setup_electricity_standing_charges_coordinator
 from .coordinators.gas_rates import async_setup_gas_rates_coordinator
 from .coordinators.gas_standing_charges import async_setup_gas_standing_charges_coordinator
-from .coordinators.current_consumption import async_create_current_consumption_coordinator
 from .coordinators.previous_consumption_and_rates import async_create_previous_consumption_and_rates_coordinator
 from .coordinators.annual_electricity_consumption import async_setup_annual_electricity_consumption_coordinator
 from .coordinators.annual_gas_consumption import async_setup_annual_gas_consumption_coordinator
@@ -41,14 +40,9 @@ from .const import (
     CONFIG_ACCOUNT_ID,
     CONFIG_MAIN_EMAIL,
     CONFIG_MAIN_PASSWORD,
-    CONFIG_MAIN_SUPPORTS_LIVE_CONSUMPTION,
-    CONFIG_MAIN_LIVE_ELECTRICITY_CONSUMPTION_REFRESH_IN_MINUTES,
-    CONFIG_DEFAULT_LIVE_ELECTRICITY_CONSUMPTION_REFRESH_IN_MINUTES,
     CONFIG_VERSION,
     DATA_CLIENT,
     DATA_ACCOUNT,
-    DATA_CURRENT_CONSUMPTION_KEY,
-    DATA_CURRENT_CONSUMPTION_COORDINATOR_KEY,
     DATA_ACCOUNT_TRANSACTIONS_COORDINATOR_KEY,
     DATA_INTELLIGENT_DEVICE_KEY,
     DATA_INTELLIGENT_COORDINATOR_KEY,
@@ -250,20 +244,15 @@ async def async_setup_dependencies(hass, config):
     # -------------------------------------------------------------------------
     # Set up coordinators for each active electricity meter
     # -------------------------------------------------------------------------
-    supports_live_consumption = config.get(CONFIG_MAIN_SUPPORTS_LIVE_CONSUMPTION, False)
-    live_refresh_rate = config.get(
-        CONFIG_MAIN_LIVE_ELECTRICITY_CONSUMPTION_REFRESH_IN_MINUTES,
-        CONFIG_DEFAULT_LIVE_ELECTRICITY_CONSUMPTION_REFRESH_IN_MINUTES,
-    )
 
     for point in account_info.get("electricity_meter_points", []) or []:
         mpan = point["mpan"]
-
         # Annual consumption coordinator — one per MPAN
         annual_elec_coordinator = await async_setup_annual_electricity_consumption_coordinator(
             hass, account_id, client, mpan
         )
         await annual_elec_coordinator.async_config_entry_first_refresh()
+
 
         for meter in point["meters"]:
             serial_number = meter["serial_number"]
@@ -299,31 +288,17 @@ async def async_setup_dependencies(hass, config):
             )
             await cost_tracker_coordinator.async_config_entry_first_refresh()
 
-            # Live smart meter consumption (only if user has SMETS2 and opted in)
-            if supports_live_consumption and device_id is not None:
-                coordinator = await async_create_current_consumption_coordinator(
-                    hass,
-                    account_id,
-                    client,
-                    device_id,
-                    live_refresh_rate,
-                )
-                hass.data[DOMAIN][account_id][
-                    DATA_CURRENT_CONSUMPTION_COORDINATOR_KEY.format(device_id)
-                ] = coordinator
-                await coordinator.async_config_entry_first_refresh()
-
     # -------------------------------------------------------------------------
     # Set up coordinators for each active gas meter
     # -------------------------------------------------------------------------
     for point in account_info.get("gas_meter_points", []) or []:
         mprn = point["mprn"]
-
         # Annual gas consumption coordinator — one per MPRN
         annual_gas_coordinator = await async_setup_annual_gas_consumption_coordinator(
             hass, account_id, client, mprn
         )
         await annual_gas_coordinator.async_config_entry_first_refresh()
+
 
         for meter in point["meters"]:
             serial_number = meter["serial_number"]

@@ -257,27 +257,6 @@ gas_meter_readings_query = '''query GasMeterReadings($accountNumber: String!, $m
   }
 }'''
 
-live_consumption_query = '''query SmartMeterTelemetry(
-  $deviceId: String!,
-  $start: DateTime,
-  $end: DateTime,
-  $grouping: TelemetryGrouping
-) {
-  smartMeterTelemetry(
-    deviceId: $deviceId,
-    start: $start,
-    end: $end,
-    grouping: $grouping
-  ) {
-    readAt
-    consumption
-    export
-    demand
-    consumptionDelta
-    costDelta
-    costDeltaWithTax
-  }
-}'''
 
 
 
@@ -920,54 +899,6 @@ class EDFEnergyApiClient:
       _LOGGER.warning(f'Failed to connect. Timeout of {self._timeout} exceeded.')
       raise TimeoutException()
     return None
-
-  async def async_get_smart_meter_consumption(self, device_id: str, period_from: datetime, period_to: datetime):
-    """Get the user's smart meter consumption"""
-    await self.async_refresh_token()
-
-    try:
-      client = self._create_client_session()
-      url = f'{self._base_url}/v1/graphql/'
-      payload = {
-        "query": live_consumption_query,
-        "variables": {
-          "deviceId": device_id,
-          "start": period_from.isoformat(),
-          "end": period_to.isoformat(),
-          "grouping": "HALF_HOURLY"
-        }
-      }
-      headers = { "Authorization": self._graphql_token, "context": "smart-meter-consumption" }
-      async with client.post(url, json=payload, headers=headers) as response:
-        response_body = await self.__async_read_response__(response, url, expected_error_codes=["KT-GB-4039"])
-
-        if (response_body is not None and
-            "data" in response_body and
-            "smartMeterTelemetry" in response_body["data"] and
-            response_body["data"]["smartMeterTelemetry"] is not None and
-            len(response_body["data"]["smartMeterTelemetry"]) > 0):
-          return list(map(lambda mp: {
-            "total_consumption": float(mp["consumption"]) / 1000 if mp.get("consumption") is not None else None,
-            "total_export": float(mp["export"]) / 1000 if mp.get("export") is not None else None,
-            "consumption": float(mp["consumptionDelta"]) / 1000 if mp.get("consumptionDelta") is not None else 0,
-            "demand": float(mp["demand"]) if mp.get("demand") is not None else None,
-            "cost_delta": float(mp["costDelta"]) if mp.get("costDelta") is not None else None,
-            "cost_delta_with_tax": float(mp["costDeltaWithTax"]) if mp.get("costDeltaWithTax") is not None else None,
-            "start": parse_datetime(mp["readAt"]),
-            "end": parse_datetime(mp["readAt"]) + timedelta(minutes=30)
-          }, response_body["data"]["smartMeterTelemetry"]))
-        else:
-          _LOGGER.debug(f"Failed to retrieve smart meter consumption - device_id: {device_id}; period_from: {period_from}; period_to: {period_to}")
-
-    except TimeoutError:
-      _LOGGER.warning(f'Failed to connect. Timeout of {self._timeout} exceeded.')
-      raise TimeoutException()
-
-    return None
-
-    # ---------------------------------------------------------------------------
-  # Intelligent / EV smart charging
-  # ---------------------------------------------------------------------------
 
   async def async_get_intelligent_device(self, account_id: str):
     """Return the first enrolled SmartFlex EV device for the account, or None."""

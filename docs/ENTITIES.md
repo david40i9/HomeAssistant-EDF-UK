@@ -34,7 +34,7 @@ One set per meter point (MPAN/MPRN).
 | Entity | Type | What it shows | Useful attributes |
 |---|---|---|---|
 | EDF Electricity Tariff ({mpan}) | sensor | Tariff name, e.g. *Go Electric 12m* | `tariff_code`, `product_code`, `display_name`, `valid_from`, `valid_to` |
-| EDF Electricity Tariff Type ({mpan}) | sensor | Tariff type derived from the tariff code | `tariff_code` |
+| EDF Electricity Tariff Type ({mpan}) | sensor | Tariff type: Standard, Economy 7, EV, Smart / Half-Hourly, Dynamic / FreePhase, Prepay or Export | `tariff_code` |
 | EDF Electricity Contract End ({mpan}) | sensor (date) | When the current contract ends | `contract_start`, `tariff_code`, `rolling_contract` |
 | EDF Gas Contract End ({mprn}) | sensor (date) | When the gas contract ends (unknown for rolling/variable tariffs) | `contract_start`, `tariff_code`, `rolling_contract` |
 
@@ -77,23 +77,12 @@ EDF's half-hourly data usually arrives a day or two late, so the "previous" sens
 | EDF Electricity Previous Accumulative Cost ({serial}/{mpan}) | sensor | GBP | Cost for that day, including standing charge | `total_without_standing_charge`, `standing_charge`, `charges` |
 | EDF Electricity Previous Peak / Off-Peak Consumption ({serial}/{mpan}) | sensor | kWh | That day's usage split by peak and off-peak rate | `is_economy_7` |
 | EDF Electricity Previous Peak / Off-Peak Cost ({serial}/{mpan}) | sensor | GBP | That day's cost split by peak and off-peak rate | `is_economy_7` |
-| EDF Electricity Daily / Weekly / Monthly Cost ({serial}/{mpan}) | sensor | GBP | Running cost for the current day, week and month | `period_start` |
+| EDF Electricity Weekly / Monthly Cost ({serial}/{mpan}) | sensor | GBP | Running cost for the current week and month, from the consumption EDF has published so far | `period_start` |
 
-### Live data (not available from EDF)
-
-These are created only when **Supports live consumption** is ticked and the meter has a smart device ID. **EDF doesn't provide live smart meter data**: its telemetry query always answers `KT-GB-4039` ("Unable to query smart meter telemetry data"), as stevekirtley confirmed with EDF, so these sensors stay unavailable. Leave the option unticked. They're listed here only because the code, inherited from Octopus Energy, still supports them.
-
-| Entity | Unit | What it shows |
-|---|---|---|
-| EDF Electricity Current Demand ({serial}/{mpan}) | W | Current power draw |
-| EDF Electricity Current Consumption ({serial}/{mpan}) | kWh | Consumption in the latest interval (disabled by default) |
-| EDF Electricity Current Total Consumption ({serial}/{mpan}) | kWh | Meter total from live data |
-| EDF Electricity Current Accumulative Consumption / Cost ({serial}/{mpan}) | kWh / GBP | Today's running consumption and cost from live data |
-| EDF Current Total Electricity Export ({serial}/{mpan}) | kWh | Export total from live data (disabled by default) |
 
 ### Annual estimates
 
-EDF's estimated annual consumption. EDF doesn't provide these for newer accounts (`KT-CT-1111`); they then stay unknown.
+EDF's estimated annual consumption. EDF doesn't return these for every account (`KT-CT-1111`, "not authorised"); they then stay unknown and the error is logged quietly.
 
 | Entity | What it shows |
 |---|---|
@@ -112,7 +101,7 @@ Per gas meter.
 | EDF Gas Previous Accumulative Consumption ({serial}/{mprn}) | sensor | kWh | Latest published day's usage, converted to kWh. **Use this in the Energy dashboard** | `start`, `end`, `charges`, `total` |
 | EDF Gas Previous Accumulative Consumption m³ ({serial}/{mprn}) | sensor | m³ | The same in cubic metres | `charges`, `total` |
 | EDF Gas Previous Accumulative Cost ({serial}/{mprn}) | sensor | GBP | Cost for that day including standing charge | `total_without_standing_charge`, `standing_charge` |
-| EDF Gas Daily / Weekly / Monthly Cost ({serial}/{mprn}) | sensor | GBP | Running cost for the current day, week and month | `period_start` |
+| EDF Gas Weekly / Monthly Cost ({serial}/{mprn}) | sensor | GBP | Running cost for the current week and month, from the consumption EDF has published so far | `period_start` |
 | EDF Gas Annual Quantity ({mprn}) | sensor | kWh | EDF's annual quantity estimate (unknown for newer accounts) | `supplier_name`, `aq_effective_from` |
 
 ## Smart Charging (EV)

@@ -84,21 +84,6 @@ class _ElecCostTrackerBase(CoordinatorEntity, EDFEnergyElectricitySensor, Restor
             self._attributes = dict_to_typed_dict(state.attributes)
 
 
-class EDFEnergyElectricityDailyCost(_ElecCostTrackerBase):
-    """Cost so far today for electricity (consumption cost + 1 day standing charge)."""
-
-    @property
-    def unique_id(self):
-        return f'edf_energy_electricity_{self._serial_number}_{self._mpan}{self._export_id_addition}_daily_cost'
-
-    @property
-    def name(self):
-        return f'EDF {self._export_name_addition}Electricity Daily Cost ({self._serial_number}/{self._mpan})'
-
-    def _extract(self, result):
-        return result.daily_consumption, result.daily_cost, result.daily_reset
-
-
 class EDFEnergyElectricityWeeklyCost(_ElecCostTrackerBase):
     """Cost so far this week for electricity (Mon–now)."""
 

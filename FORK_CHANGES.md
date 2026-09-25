@@ -1,6 +1,6 @@
 # Fork changes
 
-This fork of [Bobby5291/HomeAssistant-EDF-UK](https://github.com/Bobby5291/HomeAssistant-EDF-UK) is based on upstream `main` (the `v1.9.9b` beta plus the NOTICE file) with extra fixes on top. Fork version: **2.0.2** (shown in Home Assistant under the integration's details).
+This fork of [Bobby5291/HomeAssistant-EDF-UK](https://github.com/Bobby5291/HomeAssistant-EDF-UK) is based on upstream `main` (the `v1.9.9b` beta plus the NOTICE file) with extra fixes on top. Fork version: **2.1.0** (shown in Home Assistant under the integration's details).
 
 ## 2.0.0: new internal name `edf_energy_uk`
 
@@ -85,6 +85,13 @@ Found by reading the issues and code of [stevekirtley's EDF integration](https:/
 
 - **Current Rate attributes too large.** The full `all_rates`/`applicable_rates` lists pushed the Current Rate sensors' attributes over Home Assistant's 16KB limit, so the recorder dropped them with a warning. Those two lists are now excluded from the recorder; they're still available on the live entity.
 
+### Tidy-up: removed what can't work, fixed Tariff Type
+
+- **Removed live consumption.** The *Supports live consumption* option and its sensors (Current Demand, Current Consumption, Current Total Consumption, Current Accumulative Consumption/Cost, Current Total Export) relied on `smartMeterTelemetry`, which EDF doesn't provide for any account (`KT-GB-4039`, confirmed with EDF by stevekirtley and reported on Bobby5291's #24). Existing config entries keep the option in their stored data, which is simply ignored.
+- **Removed Daily Cost sensors** (electricity, export, gas). They add up *today's* consumption, and EDF only publishes consumption a day or more later for every account, so they could never have a value. Weekly and Monthly Cost are unchanged.
+- **Kept** the annual consumption sensors, flat-tariff next/previous rates and export consumption, which work for some accounts or tariffs even when they don't for this one.
+- **Fixed Electricity Tariff Type**, which was always Unknown: the tariff-code pattern (from Octopus) didn't allow the underscores in EDF product codes. It now uses the tariff type EDF reports on the agreement (Go Electric → EV, export → Export, day/night → Economy 7), with the corrected pattern as a fallback.
+
 ### Packaging
 
 - `hacs.json` installs from the repository contents instead of a release zip, since the fork has no releases.
@@ -99,7 +106,6 @@ Found by reading the issues and code of [stevekirtley's EDF integration](https:/
 
 ## Not yet resolved
 
-- Annual consumption (EAC/AQ) returns `KT-CT-1111` for some accounts; EDF indicates this is expected for newer accounts.
-- EDF doesn't provide live smart meter telemetry at all (`KT-GB-4039`, confirmed with EDF by stevekirtley), so the current demand / current consumption sensors stay unavailable. The option to enable them is still offered; leave it unticked.
+- Annual consumption (EAC/AQ) returns `KT-CT-1111` ("not authorised") for some accounts, including one on EDF since 2023, so it may not be available to customer logins at all. The sensors are kept for accounts where it works.
 - Day/night (Economy 7) tariffs can't be priced from the account agreement when EDF hides the product, as the agreement doesn't include the time bands.
 - Rate and standing charge sensors still use `monetary` + `total`. Octopus Energy v19 moved them to `measurement` for min/max/average statistics; that change would make Home Assistant ask to delete their existing statistics, so it hasn't been made.

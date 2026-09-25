@@ -83,21 +83,6 @@ class _GasCostTrackerBase(CoordinatorEntity, EDFEnergyGasSensor, RestoreSensor):
             self._attributes = dict_to_typed_dict(state.attributes)
 
 
-class EDFEnergyGasDailyCost(_GasCostTrackerBase):
-    """Gas cost so far today."""
-
-    @property
-    def unique_id(self):
-        return f'edf_energy_gas_{self._serial_number}_{self._mprn}_daily_cost'
-
-    @property
-    def name(self):
-        return f'EDF Gas Daily Cost ({self._serial_number}/{self._mprn})'
-
-    def _extract(self, result):
-        return result.daily_consumption, result.daily_cost, result.daily_reset
-
-
 class EDFEnergyGasWeeklyCost(_GasCostTrackerBase):
     """Gas cost so far this week (Mon–now)."""
 

@@ -15,14 +15,6 @@ from .electricity.annual_consumption import (
     EDFEnergyElectricityEACDay,
     EDFEnergyElectricityEACNight,
 )
-from .electricity.current_sensors import (
-    EDFEnergyCurrentElectricityConsumption,
-    EDFEnergyCurrentElectricityDemand,
-    EDFEnergyCurrentTotalElectricityConsumption,
-    EDFEnergyCurrentAccumulativeElectricityConsumption,
-    EDFEnergyCurrentAccumulativeElectricityCost,
-)
-from .electricity.current_total_export import EDFEnergyCurrentTotalElectricityExport
 from .electricity.dynamic_rates import (
     EDFEnergyDynamicCurrentPeriod,
     EDFEnergyDynamicTodayGreenRate,
@@ -47,7 +39,6 @@ from .electricity.diagnostics import (
     EDFEnergyElectricityConsumptionLastRetrieved,
 )
 from .electricity.cost_tracker import (
-    EDFEnergyElectricityDailyCost,
     EDFEnergyElectricityWeeklyCost,
     EDFEnergyElectricityMonthlyCost,
 )
@@ -67,7 +58,6 @@ from .gas.diagnostics import (
     EDFEnergyGasConsumptionLastRetrieved,
 )
 from .gas.cost_tracker import (
-    EDFEnergyGasDailyCost,
     EDFEnergyGasWeeklyCost,
     EDFEnergyGasMonthlyCost,
 )
@@ -93,16 +83,12 @@ from .intelligent.sensors import (
 
 from .const import (
     CONFIG_ACCOUNT_ID,
-    CONFIG_MAIN_SUPPORTS_LIVE_CONSUMPTION,
-    CONFIG_MAIN_LIVE_ELECTRICITY_CONSUMPTION_REFRESH_IN_MINUTES,
-    CONFIG_DEFAULT_LIVE_ELECTRICITY_CONSUMPTION_REFRESH_IN_MINUTES,
     DATA_ACCOUNT,
     DATA_ACCOUNT_COORDINATOR,
     DATA_CLIENT,
     DATA_ANNUAL_ELECTRICITY_CONSUMPTION_COORDINATOR_KEY,
     DATA_ANNUAL_GAS_CONSUMPTION_COORDINATOR_KEY,
     DATA_ACCOUNT_TRANSACTIONS_COORDINATOR_KEY,
-    DATA_CURRENT_CONSUMPTION_COORDINATOR_KEY,
     DATA_ELECTRICITY_COST_TRACKER_COORDINATOR_KEY,
     DATA_ELECTRICITY_METER_READINGS_COORDINATOR_KEY,
     DATA_ELECTRICITY_RATES_COORDINATOR_KEY,
@@ -156,11 +142,6 @@ async def async_setup_entry(hass: HomeAssistant, entry, async_add_entities):
     # -------------------------------------------------------------------------
     # Electricity meter sensors — one set per active meter
     # -------------------------------------------------------------------------
-    supports_live = config.get(CONFIG_MAIN_SUPPORTS_LIVE_CONSUMPTION, False)
-    live_refresh_rate = config.get(
-        CONFIG_MAIN_LIVE_ELECTRICITY_CONSUMPTION_REFRESH_IN_MINUTES,
-        CONFIG_DEFAULT_LIVE_ELECTRICITY_CONSUMPTION_REFRESH_IN_MINUTES,
-    )
 
     for point in account_info.get("electricity_meter_points", []) or []:
         mpan = point["mpan"]
@@ -169,13 +150,13 @@ async def async_setup_entry(hass: HomeAssistant, entry, async_add_entities):
         entities.append(EDFEnergyElectricityTariff(hass, account_coordinator, account_id, mpan))
         entities.append(EDFEnergyElectricityTariffType(hass, account_coordinator, account_id, mpan))
         entities.append(EDFEnergyElectricityContractEnd(hass, account_coordinator, account_id, mpan))
-
         annual_elec_coordinator_key = DATA_ANNUAL_ELECTRICITY_CONSUMPTION_COORDINATOR_KEY.format(mpan)
         annual_elec_coordinator = hass.data[DOMAIN][account_id].get(annual_elec_coordinator_key)
         if annual_elec_coordinator is not None:
             entities.append(EDFEnergyElectricityEACStandard(hass, annual_elec_coordinator, mpan))
             entities.append(EDFEnergyElectricityEACDay(hass, annual_elec_coordinator, mpan))
             entities.append(EDFEnergyElectricityEACNight(hass, annual_elec_coordinator, mpan))
+
 
         for meter in point["meters"]:
             serial_number = meter["serial_number"]
@@ -253,28 +234,8 @@ async def async_setup_entry(hass: HomeAssistant, entry, async_add_entities):
 
             # Daily/weekly/monthly cost trackers
             if cost_tracker_coordinator is not None:
-                entities.append(EDFEnergyElectricityDailyCost(hass, cost_tracker_coordinator, meter, point))
                 entities.append(EDFEnergyElectricityWeeklyCost(hass, cost_tracker_coordinator, meter, point))
                 entities.append(EDFEnergyElectricityMonthlyCost(hass, cost_tracker_coordinator, meter, point))
-
-            # Live smart meter sensors — only if user has SMETS2 and opted in
-            if supports_live and device_id is not None:
-                consumption_coordinator_key = DATA_CURRENT_CONSUMPTION_COORDINATOR_KEY.format(device_id)
-                consumption_coordinator = hass.data[DOMAIN][account_id].get(consumption_coordinator_key)
-
-                if consumption_coordinator is not None:
-                    entities.append(EDFEnergyCurrentElectricityConsumption(hass, consumption_coordinator, meter, point))
-                    entities.append(EDFEnergyCurrentElectricityDemand(hass, consumption_coordinator, meter, point))
-                    entities.append(EDFEnergyCurrentTotalElectricityConsumption(hass, consumption_coordinator, meter, point))
-                    entities.append(EDFEnergyCurrentTotalElectricityExport(hass, consumption_coordinator, meter, point))
-
-                    if rates_coordinator is not None and standing_charge_coordinator is not None:
-                        entities.append(EDFEnergyCurrentAccumulativeElectricityConsumption(
-                            hass, consumption_coordinator, rates_coordinator, standing_charge_coordinator, meter, point
-                        ))
-                        entities.append(EDFEnergyCurrentAccumulativeElectricityCost(
-                            hass, consumption_coordinator, rates_coordinator, standing_charge_coordinator, meter, point
-                        ))
 
     # -------------------------------------------------------------------------
     # Gas meter sensors — one set per active meter
@@ -284,11 +245,11 @@ async def async_setup_entry(hass: HomeAssistant, entry, async_add_entities):
 
         # Per-MPRN sensors
         entities.append(EDFEnergyGasContractEnd(hass, account_coordinator, account_id, mprn))
-
         annual_gas_coordinator_key = DATA_ANNUAL_GAS_CONSUMPTION_COORDINATOR_KEY.format(mprn)
         annual_gas_coordinator = hass.data[DOMAIN][account_id].get(annual_gas_coordinator_key)
         if annual_gas_coordinator is not None:
             entities.append(EDFEnergyGasAnnualQuantity(hass, annual_gas_coordinator, mprn))
+
 
         for meter in point["meters"]:
             serial_number = meter["serial_number"]
@@ -328,7 +289,6 @@ async def async_setup_entry(hass: HomeAssistant, entry, async_add_entities):
                 entities.append(EDFEnergyGasMeterReading(hass, gas_readings_coordinator, meter, point))
 
             if gas_cost_tracker_coordinator is not None:
-                entities.append(EDFEnergyGasDailyCost(hass, gas_cost_tracker_coordinator, meter, point))
                 entities.append(EDFEnergyGasWeeklyCost(hass, gas_cost_tracker_coordinator, meter, point))
                 entities.append(EDFEnergyGasMonthlyCost(hass, gas_cost_tracker_coordinator, meter, point))
 

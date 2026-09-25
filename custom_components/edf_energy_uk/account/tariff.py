@@ -18,16 +18,34 @@ from .balance import EDFEnergyAccountSensor
 _LOGGER = logging.getLogger(__name__)
 
 
-def _classify_tariff(tariff_code: str) -> str:
-    """Return a human-readable tariff type label from the tariff code."""
+_TARIFF_TYPE_LABELS = {
+    "DayNightTariff": "Economy 7",
+    "ThreeRateTariff": "Economy 7",
+    "PrepayTariff": "Prepay",
+    "StandardTariff": "Standard",
+    "FourRateEvTariff": "EV",
+}
+
+
+def _classify_tariff(tariff_code: str, tariff_type: str | None = None) -> str:
+    """Return a human-readable tariff type label.
+
+    Uses the tariff type EDF reports on the agreement where available, falling back to the tariff code.
+    """
     if not tariff_code:
         return "Unknown"
     upper = tariff_code.upper()
-    # Check product code for named dynamic tariffs before parsing parts
+    # Check product code for named dynamic tariffs before anything else
     if "FREEPHASE" in upper or "FREE_PHASE" in upper or "FREE-PHASE" in upper:
         return "Dynamic / FreePhase"
     if "FREEEV" in upper or "FREE_EV" in upper:
         return "Dynamic / FreeEV"
+    if "EXPORT" in upper:
+        return "Export"
+    if tariff_type == "HalfHourlyTariff":
+        return "EV" if ("_EV_" in upper or "GOELEC" in upper) else "Smart / Half-Hourly"
+    if tariff_type in _TARIFF_TYPE_LABELS:
+        return _TARIFF_TYPE_LABELS[tariff_type]
     parts = get_tariff_parts(tariff_code)
     if parts is None:
         return "Unknown"
@@ -37,7 +55,7 @@ def _classify_tariff(tariff_code: str) -> str:
         return "EV"
     if "FREEPHASE" in product or "FREE" in product and "HH" in rate:
         return "Dynamic / FreePhase"
-    if "HH" in rate:
+    if "HH" in rate or product.endswith("_HH"):
         return "Smart / Half-Hourly"
     if "2R" in rate or "FLAT2R" in rate or "E7" in rate:
         return "Economy 7"
@@ -185,7 +203,11 @@ class EDFEnergyElectricityTariffType(CoordinatorEntity, EDFEnergyAccountSensor, 
                 if point.get("mpan") == self._mpan:
                     active_tariff = get_active_tariff(current, point.get("agreements", []))
                     if active_tariff is not None:
-                        self._state = _classify_tariff(active_tariff.code)
+                        tariff_type = next(
+                            (a.get("tariff_type") for a in point.get("agreements", []) if a.get("tariff_code") == active_tariff.code),
+                            None,
+                        )
+                        self._state = _classify_tariff(active_tariff.code, tariff_type)
                         self._attributes["tariff_code"] = active_tariff.code
                     break
 

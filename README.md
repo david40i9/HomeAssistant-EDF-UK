@@ -41,7 +41,7 @@ This integration is still under development. You may encounter:
 - API changes on EDF's side
 - Limited documentation
 
-Some data depends on your EDF account. For example, EDF doesn't provide annual consumption estimates for newer accounts. EDF also doesn't provide live smart meter data at all, so leave **Supports live consumption** unticked; EDF's half-hourly data arrives a day or so later instead.
+Some data depends on your EDF account. For example, EDF doesn't return annual consumption estimates for every account, and those sensors then stay unknown. EDF doesn't provide live smart meter data at all; its half-hourly consumption data arrives a day or so later instead.
 
 ---
 

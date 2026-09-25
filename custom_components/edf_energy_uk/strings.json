@@ -8,15 +8,11 @@
           "account_id": "Account Number",
           "email": "Email Address",
           "password": "Password",
-          "calorific_value": "Calorific Value (for gas kWh calculation)",
-          "supports_live_consumption": "I have a SMETS2 smart meter (enables live consumption sensors)",
-          "live_electricity_consumption_refresh_in_minutes": "Live electricity refresh rate (minutes)",
-          "live_gas_consumption_refresh_in_minutes": "Live gas refresh rate (minutes)"
+          "calorific_value": "Calorific Value (for gas kWh calculation)"
         },
         "data_description": {
           "account_id": "Your EDF account number (e.g. A-1234567A)",
-          "calorific_value": "Used to convert gas consumption to kWh. Check your bill — usually around 40.0",
-          "supports_live_consumption": "Only enable if you have a SMETS2 smart meter. Enables live demand, current consumption and accumulative cost sensors"
+          "calorific_value": "Used to convert gas consumption to kWh. Check your bill — usually around 40.0"
         }
       },
       "reconfigure": {
@@ -25,10 +21,7 @@
         "data": {
           "email": "Email Address",
           "password": "Password",
-          "calorific_value": "Calorific Value",
-          "supports_live_consumption": "I have a SMETS2 smart meter",
-          "live_electricity_consumption_refresh_in_minutes": "Live electricity refresh rate (minutes)",
-          "live_gas_consumption_refresh_in_minutes": "Live gas refresh rate (minutes)"
+          "calorific_value": "Calorific Value"
         }
       }
     },
