@@ -167,7 +167,7 @@ section{margin-top:12px}
       <label class="tog"><input type="checkbox" id="f22"> Hide 22kW charger options</label>
     </div>
   </div>
-  <div class="sub" style="margin-top:6px">Tip: Ctrl/⌘-click (or tap on mobile) to pick several. Nothing selected means all.</div>
+  <div class="sub" style="margin-top:6px">Tip: Ctrl/⌘-click (or tap on mobile) to pick several. Nothing selected means all. Each list only shows what matches your other filters; the number is how many cars.</div>
 </section>
 
 <div class="grid charts">
@@ -316,25 +316,34 @@ const P_MIN = Math.floor(Math.min(...ROWS.map(r => r.p11d || Infinity)) / 1000) 
 const P_MAX = Math.ceil(Math.max(...ROWS.map(r => r.p11d || 0)) / 1000) * 1000;
 const F = {make:new Set(), model:new Set(), fuel:new Set(), body:new Set(), pmin:P_MIN, pmax:P_MAX, text:"", ev:false, hide22:false};
 
-function fillSelect(sel, vals, set) { sel.innerHTML = vals.map(v => `<option${set.has(v) ? " selected" : ""}>${esc(v)}</option>`).join(""); }
-function bindMulti(sel, key, after) {
-  sel.addEventListener("change", () => { F[key] = new Set([...sel.selectedOptions].map(o => o.value)); after && after(); render(); });
+const FACETS = [["make", "#fMake"], ["model", "#fModel"], ["fuel", "#fFuel"], ["body", "#fBody"]];
+function fillSelect(sel, vals, set, counts) {
+  const top = sel.scrollTop;
+  sel.innerHTML = vals.map(v => `<option value="${esc(v)}"${set.has(v) ? " selected" : ""}>${esc(v)}${counts ? ` (${counts.get(v) || 0})` : ""}</option>`).join("");
+  sel.scrollTop = top;
+}
+function bindMulti(sel, key) {
+  sel.addEventListener("change", () => { F[key] = new Set([...sel.selectedOptions].map(o => o.value)); render(); });
   // tap-to-toggle without modifier keys on desktop mice
   sel.addEventListener("mousedown", e => {
     if (e.target.tagName !== "OPTION" || e.ctrlKey || e.metaKey || e.shiftKey) return;
     e.preventDefault(); e.target.selected = !e.target.selected; sel.dispatchEvent(new Event("change"));
   });
 }
-function refreshModels() {
-  const models = [...new Set(ROWS.filter(r => !F.make.size || F.make.has(r.make)).map(r => r.model))].sort();
-  for (const m of [...F.model]) if (!models.includes(m)) F.model.delete(m);
-  fillSelect($("#fModel"), models, F.model);
+// Faceted lists: each shows only values still available under every *other* active filter.
+function refreshFacets() {
+  for (const [key, sel] of FACETS) {
+    const counts = new Map();
+    for (const r of ROWS) if (passes(r, key)) counts.set(r[key], (counts.get(r[key]) || 0) + 1);
+    const vals = [...new Set([...counts.keys(), ...F[key]])].filter(Boolean).sort();
+    fillSelect($(sel), vals, F[key], counts);
+  }
 }
-function passes(r) {
-  if (F.make.size && !F.make.has(r.make)) return false;
-  if (F.model.size && !F.model.has(r.model)) return false;
-  if (F.fuel.size && !F.fuel.has(r.fuel)) return false;
-  if (F.body.size && !F.body.has(r.body)) return false;
+function passes(r, skip) {
+  if (skip !== "make" && F.make.size && !F.make.has(r.make)) return false;
+  if (skip !== "model" && F.model.size && !F.model.has(r.model)) return false;
+  if (skip !== "fuel" && F.fuel.size && !F.fuel.has(r.fuel)) return false;
+  if (skip !== "body" && F.body.size && !F.body.has(r.body)) return false;
   if (r.p11d != null && (r.p11d < F.pmin || r.p11d > F.pmax)) return false;
   if (F.ev && !r.ev) return false;
   if (F.hide22 && r.kw22) return false;
@@ -564,7 +573,8 @@ document.addEventListener("click", e => { const b = e.target.closest("[data-pin]
 let raf = 0;
 function render() { cancelAnimationFrame(raf); raf = requestAnimationFrame(renderNow); }
 function renderNow() {
-  VIEW = ROWS.filter(passes).map(derive);
+  VIEW = ROWS.filter(r => passes(r)).map(derive);
+  refreshFacets();
   $("#countLine").textContent = `${VIEW.length} of ${ROWS.length} cars`;
   $("#allCount").textContent = `${VIEW.length} rows`;
   drawKpis();
@@ -592,11 +602,7 @@ function segButtons(el, items, get, set) {
 const syncYear = segButtons($("#yearSeg"), YEARS.map((y, i) => ({label:y.replace("20", "").replace("/20", "/"), value:i})), () => S.year, v => S.year = v);
 const syncRate = segButtons($("#rateSeg"), RATES.map(r => ({label:r * 100 + "%", value:r})), () => S.rate, v => S.rate = v);
 
-fillSelect($("#fMake"), uniq("make"), F.make);
-fillSelect($("#fFuel"), uniq("fuel"), F.fuel);
-fillSelect($("#fBody"), uniq("body"), F.body);
-refreshModels();
-bindMulti($("#fMake"), "make", refreshModels);
+bindMulti($("#fMake"), "make");
 bindMulti($("#fModel"), "model");
 bindMulti($("#fFuel"), "fuel");
 bindMulti($("#fBody"), "body");
@@ -620,7 +626,6 @@ $("#f22").addEventListener("change", e => { F.hide22 = e.target.checked; render(
 $("#resetBtn").addEventListener("click", () => {
   F.make.clear(); F.model.clear(); F.fuel.clear(); F.body.clear(); F.text = ""; F.ev = F.hide22 = false;
   $("#fText").value = ""; $("#fEV").checked = $("#f22").checked = false; pMin.value = P_MIN; pMax.value = P_MAX; syncP();
-  fillSelect($("#fMake"), uniq("make"), F.make); fillSelect($("#fFuel"), uniq("fuel"), F.fuel); fillSelect($("#fBody"), uniq("body"), F.body); refreshModels();
   render();
 });
 $("#slClear").addEventListener("click", () => { pins.clear(); persist(); render(); });
