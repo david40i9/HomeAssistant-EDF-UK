@@ -160,6 +160,10 @@ section{margin-top:12px}
       <span>P11D <span id="pLbl"></span></span>
       <div class="range2"><div class="track"></div><div class="fill" id="pFill"></div>
         <input type="range" id="pMin" aria-label="Minimum P11D"><input type="range" id="pMax" aria-label="Maximum P11D"></div>
+      <span style="margin-top:6px">Net £/month <span id="nLbl"></span></span>
+      <div class="range2"><div class="track"></div><div class="fill" id="nFill"></div>
+        <input type="range" id="nMin" aria-label="Minimum net monthly cost"><input type="range" id="nMax" aria-label="Maximum net monthly cost"></div>
+      <span class="sub" style="font-weight:400">At the selected tax year and rate</span>
     </div>
     <div style="display:flex;flex-direction:column;gap:2px">
       <label class="f">Search variant (Type)<input type="search" id="fText" placeholder="e.g. M SPORT, AWD, 77 KWH"></label>
@@ -314,7 +318,7 @@ const median = a => { if (!a.length) return null; const s = a.slice().sort((x,y)
 const uniq = k => [...new Set(ROWS.map(r => r[k]))].filter(Boolean).sort();
 const P_MIN = Math.floor(Math.min(...ROWS.map(r => r.p11d || Infinity)) / 1000) * 1000;
 const P_MAX = Math.ceil(Math.max(...ROWS.map(r => r.p11d || 0)) / 1000) * 1000;
-const F = {make:new Set(), model:new Set(), fuel:new Set(), body:new Set(), pmin:P_MIN, pmax:P_MAX, text:"", ev:false, hide22:false};
+const F = {make:new Set(), model:new Set(), fuel:new Set(), body:new Set(), pmin:P_MIN, pmax:P_MAX, nmin:null, nmax:null, text:"", ev:false, hide22:false};
 
 const FACETS = [["make", "#fMake"], ["model", "#fModel"], ["fuel", "#fFuel"], ["body", "#fBody"]];
 function fillSelect(sel, vals, set, counts) {
@@ -345,6 +349,10 @@ function passes(r, skip) {
   if (skip !== "fuel" && F.fuel.size && !F.fuel.has(r.fuel)) return false;
   if (skip !== "body" && F.body.size && !F.body.has(r.body)) return false;
   if (r.p11d != null && (r.p11d < F.pmin || r.p11d > F.pmax)) return false;
+  if (F.nmin != null || F.nmax != null) {
+    const n = net(r);
+    if (n == null || (F.nmin != null && n < F.nmin) || (F.nmax != null && n > F.nmax)) return false;
+  }
   if (F.ev && !r.ev) return false;
   if (F.hide22 && r.kw22) return false;
   if (F.text) { const t = r.type.toUpperCase(); for (const w of F.text) if (!t.includes(w)) return false; }
@@ -575,6 +583,7 @@ document.addEventListener("click", e => { const b = e.target.closest("[data-pin]
 let raf = 0;
 function render() { cancelAnimationFrame(raf); raf = requestAnimationFrame(renderNow); }
 function renderNow() {
+  updateNetBounds();
   VIEW = ROWS.filter(r => passes(r)).map(derive);
   refreshFacets();
   $("#countLine").textContent = `${VIEW.length} of ${ROWS.length} cars`;
@@ -622,12 +631,38 @@ function syncP() {
 pMin.addEventListener("input", () => { syncP(); render(); });
 pMax.addEventListener("input", () => { syncP(); render(); });
 syncP();
+
+// Net £/m slider: ends track the min/max at the current settings; null bound = open-ended.
+const nMin = $("#nMin"), nMax = $("#nMax");
+let N_LO = 0, N_HI = 0;
+for (const el of [nMin, nMax]) el.step = 10;
+function updateNetBounds() {
+  const vals = ROWS.map(r => net(r)).filter(v => v != null);
+  N_LO = Math.floor(Math.min(...vals) / 10) * 10; N_HI = Math.ceil(Math.max(...vals) / 10) * 10;
+  for (const el of [nMin, nMax]) { el.min = N_LO; el.max = N_HI; }
+  nMin.value = F.nmin == null ? N_LO : Math.max(N_LO, Math.min(N_HI, F.nmin));
+  nMax.value = F.nmax == null ? N_HI : Math.max(N_LO, Math.min(N_HI, F.nmax));
+  drawNet();
+}
+function drawNet() {
+  const a = +nMin.value, b = +nMax.value, span = N_HI - N_LO || 1;
+  $("#nLbl").textContent = `${gbpTxt(a)} – ${gbpTxt(b)}`;
+  $("#nFill").style.left = (a - N_LO) / span * 100 + "%"; $("#nFill").style.width = (b - a) / span * 100 + "%";
+}
+function syncN() {
+  let a = +nMin.value, b = +nMax.value;
+  if (a > b) { if (document.activeElement === nMin) nMin.value = a = b; else nMax.value = b = a; }
+  F.nmin = a <= N_LO ? null : a; F.nmax = b >= N_HI ? null : b;
+  drawNet();
+}
+nMin.addEventListener("input", () => { syncN(); render(); });
+nMax.addEventListener("input", () => { syncN(); render(); });
 $("#fText").addEventListener("input", e => { F.text = e.target.value.trim().toUpperCase().split(/\s+/).filter(Boolean); if (!F.text.length) F.text = ""; render(); });
 $("#fEV").addEventListener("change", e => { F.ev = e.target.checked; render(); });
 $("#f22").addEventListener("change", e => { F.hide22 = e.target.checked; render(); });
 $("#resetBtn").addEventListener("click", () => {
   F.make.clear(); F.model.clear(); F.fuel.clear(); F.body.clear(); F.text = ""; F.ev = F.hide22 = false;
-  $("#fText").value = ""; $("#fEV").checked = $("#f22").checked = false; pMin.value = P_MIN; pMax.value = P_MAX; syncP();
+  $("#fText").value = ""; $("#fEV").checked = $("#f22").checked = false; pMin.value = P_MIN; pMax.value = P_MAX; syncP(); F.nmin = F.nmax = null;
   render();
 });
 $("#slClear").addEventListener("click", () => { pins.clear(); persist(); render(); });
