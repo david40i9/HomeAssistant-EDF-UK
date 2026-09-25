@@ -1,11 +1,11 @@
 # Changelog
 
-Version history of this fork. Versions are shown in Home Assistant under the integration's details. For the reasoning behind each fix, see [FORK_CHANGES.md](FORK_CHANGES.md); for what every entity does, see [docs/ENTITIES.md](docs/ENTITIES.md).
+Version history of this fork. Versions are shown in Home Assistant under the integration's details. Credits in brackets name the people whose fixes, reports or findings each change is based on. For the reasoning behind each fix, see [FORK_CHANGES.md](FORK_CHANGES.md); for what every entity does, see [docs/ENTITIES.md](docs/ENTITIES.md).
 
 ## 2.1.0 (2026-09-25)
 
 ### Removed
-- **Live consumption**: the *Supports live consumption* option and its sensors (Current Demand, Current Consumption, Current Total Consumption, Current Accumulative Consumption/Cost, Current Total Export). EDF doesn't provide smart meter telemetry for any account (`KT-GB-4039`).
+- **Live consumption**: the *Supports live consumption* option and its sensors (Current Demand, Current Consumption, Current Total Consumption, Current Accumulative Consumption/Cost, Current Total Export). EDF doesn't provide smart meter telemetry for any account (`KT-GB-4039`). (Confirmed with EDF by @stevekirtley in [his #25](https://github.com/stevekirtley/HomeAssistant-EDFEnergy/issues/25); reported by @ArcadePunks in [Bobby5291 #24](https://github.com/Bobby5291/HomeAssistant-EDF-UK/issues/24).)
 - **Daily Cost** sensors (electricity, export, gas). EDF publishes consumption a day or more late, so today's cost never had data. Weekly and Monthly Cost remain.
 
 After updating, the removed sensors show as unavailable. Delete them from *Settings → Entities* if they appear.
@@ -22,9 +22,9 @@ After updating, the removed sensors show as unavailable. Delete them from *Setti
 ## 2.0.1 (2026-09-25)
 
 ### Fixed
-- Tariffs that publish only one payment method (e.g. FreePhase, direct debit only) no longer lose all their rates.
-- Imported cost statistics are no longer rounded to the penny every half hour.
-- Tariffs EDF temporarily hides after launching a new version (including half-hourly tariffs such as Go Electric) are priced from the account agreement instead of going unknown.
+- Tariffs that publish only one payment method (e.g. FreePhase, direct debit only) no longer lose all their rates. (From @stevekirtley's integration, [#10](https://github.com/stevekirtley/HomeAssistant-EDFEnergy/issues/10); reported by @mungojam.)
+- Imported cost statistics are no longer rounded to the penny every half hour. (Found by @wildsurfer, who also submitted a fix to Octopus Energy; fixed in @stevekirtley's integration after his [#30](https://github.com/stevekirtley/HomeAssistant-EDFEnergy/issues/30).)
+- Tariffs EDF temporarily hides after launching a new version (including half-hourly tariffs such as Go Electric) are priced from the account agreement instead of going unknown. (Approach from @stevekirtley's integration, [#23](https://github.com/stevekirtley/HomeAssistant-EDFEnergy/issues/23) and [#32](https://github.com/stevekirtley/HomeAssistant-EDFEnergy/issues/32).)
 
 ## 2.0.0 (2026-09-24)
 
@@ -43,7 +43,7 @@ After updating, the removed sensors show as unavailable. Delete them from *Setti
 ## 1.9.8.6 (2026-09-24)
 
 ### Fixed
-- Direct debit prices: rates and standing charges used the (higher) non direct debit price.
+- Direct debit prices: rates and standing charges used the (higher) non direct debit price. (Filtering ported from @BottlecapDave's Octopus Energy integration.)
 - Export tariff rates and standing charge (EDF refuses its product endpoints for export tariffs).
 
 ### Added
@@ -52,23 +52,23 @@ After updating, the removed sensors show as unavailable. Delete them from *Setti
 ## 1.9.8.5 (2026-09-24)
 
 ### Added
-- `run_graphql_query` service: read-only, admin-only GraphQL queries against the EDF API for debugging.
+- `run_graphql_query` service: read-only, admin-only GraphQL queries against the EDF API for debugging. (Based on @BottlecapDave's Octopus Energy service, [commit 0fccec8c](https://github.com/BottlecapDave/HomeAssistant-OctopusEnergy/commit/0fccec8c).)
 
 ## 1.9.8.4 (2026-09-24)
 
 ### Fixed
-- Reconfigure reload deprecation (Home Assistant 2026.12).
-- Restored attributes could revert state/device class changes.
-- Token retrieval backs off after server errors instead of retrying on every request.
+- Reconfigure reload deprecation (Home Assistant 2026.12). (Octopus Energy fix by @hCoureau, [#1843](https://github.com/BottlecapDave/HomeAssistant-OctopusEnergy/issues/1843).)
+- Restored attributes could revert state/device class changes. (Octopus Energy fix by @BottlecapDave, [#1830](https://github.com/BottlecapDave/HomeAssistant-OctopusEnergy/issues/1830).)
+- Token retrieval backs off after server errors instead of retrying on every request. (Octopus Energy fix by @alekc, [commit 43218368](https://github.com/BottlecapDave/HomeAssistant-OctopusEnergy/commit/43218368).)
 
 ## 1.9.8.3 (2026-09-24)
 
 ### Fixed
-- "Invalid credentials" when the password contains `"` or `\`: credentials are sent as GraphQL variables. The email is trimmed.
-- Expected EDF errors (annual consumption not available) are logged quietly.
+- "Invalid credentials" when the password contains `"` or `\`: credentials are sent as GraphQL variables. The email is trimmed. (Credentials fix from @Bobby5291's unmerged [PR #32](https://github.com/Bobby5291/HomeAssistant-EDF-UK/pull/32); reported by @ggodart in [#27](https://github.com/Bobby5291/HomeAssistant-EDF-UK/issues/27).)
+- Expected EDF errors (annual consumption not available) are logged quietly. (Reported by @ArcadePunks in [#24](https://github.com/Bobby5291/HomeAssistant-EDF-UK/issues/24).)
 
 ### Added
-- *EDF Auth Token Expiry* diagnostic sensor (disabled by default).
+- *EDF Auth Token Expiry* diagnostic sensor (disabled by default). (From @Bobby5291's [PR #32](https://github.com/Bobby5291/HomeAssistant-EDF-UK/pull/32).)
 
 ## 1.9.8.2 (2026-09-24)
 
@@ -79,9 +79,9 @@ After updating, the removed sensors show as unavailable. Delete them from *Setti
 
 ## 1.9.8.1 (2026-09-24)
 
-First fork release, based on upstream `main` (v1.9.9b beta).
+First fork release, based on @Bobby5291's upstream `main` (v1.9.9b beta), which includes the Smart Charging coordinator fix diagnosed by @energizedev in [#28](https://github.com/Bobby5291/HomeAssistant-EDF-UK/issues/28).
 
 ### Fixed
-- Login token handling: valid refresh tokens were discarded, expired tokens kept in use, and the refresh lock didn't work.
-- "No active tariff" repair never fired.
+- Login token handling: valid refresh tokens were discarded, expired tokens kept in use, and the refresh lock didn't work. (Octopus Energy fixes by @BottlecapDave: [7fe91791](https://github.com/BottlecapDave/HomeAssistant-OctopusEnergy/commit/7fe91791), [e7f59cc7](https://github.com/BottlecapDave/HomeAssistant-OctopusEnergy/commit/e7f59cc7), [b7497b81](https://github.com/BottlecapDave/HomeAssistant-OctopusEnergy/commit/b7497b81), [6b9d140a](https://github.com/BottlecapDave/HomeAssistant-OctopusEnergy/commit/6b9d140a).)
+- "No active tariff" repair never fired. (Matches @BottlecapDave's Octopus Energy implementation.)
 - Invalid state class on money sensors.

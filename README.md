@@ -121,7 +121,7 @@ https://edfenergy.com/quote/refer-a-friend/smoke-broom-457
 - **[Bobby5291](https://github.com/Bobby5291)** created the original [EDF UK integration](https://github.com/Bobby5291/HomeAssistant-EDF-UK) that this fork is based on.
 - **[BottlecapDave](https://github.com/BottlecapDave)** wrote the [Home Assistant Octopus Energy integration](https://github.com/BottlecapDave/HomeAssistant-OctopusEnergy). The EDF integration is heavily inspired by, and partially based on, it, and several fixes in this fork are ported from it. See [NOTICE](NOTICE).
 - **[stevekirtley](https://github.com/stevekirtley)** maintains a separate [EDF Energy integration](https://github.com/stevekirtley/HomeAssistant-EDFEnergy), also based on Octopus Energy, with EDF extras such as Sunday Saver and Power Perks. Worth a look.
-- Thanks to everyone who reported issues upstream with detailed logs.
+- Thanks to everyone who reported issues upstream with detailed logs. Individual fixes and the people behind them are credited in [CHANGELOG.md](CHANGELOG.md) and [FORK_CHANGES.md](FORK_CHANGES.md).
 
 ---
 
