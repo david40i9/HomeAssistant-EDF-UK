@@ -1,6 +1,6 @@
 # Fork changes
 
-This fork of [Bobby5291/HomeAssistant-EDF-UK](https://github.com/Bobby5291/HomeAssistant-EDF-UK) is based on upstream `main` (the `v1.9.9b` beta plus the NOTICE file) with extra fixes on top. Fork version: **2.1.0** (shown in Home Assistant under the integration's details). See [CHANGELOG.md](CHANGELOG.md) for the version-by-version history.
+This fork of [Bobby5291/HomeAssistant-EDF-UK](https://github.com/Bobby5291/HomeAssistant-EDF-UK) is based on upstream `main` (the `v1.9.9b` beta plus the NOTICE file) with extra fixes on top. Fork version: **2.3.0** (shown in Home Assistant under the integration's details). See [CHANGELOG.md](CHANGELOG.md) for the version-by-version history.
 
 ## 2.0.0: new internal name `edf_energy_uk`
 
@@ -119,7 +119,7 @@ The previous consumption coordinator (from Bobby5291's version) asked for yester
 
 ### Packaging
 
-- `hacs.json` installs from the repository contents instead of a release zip, since the fork has no releases.
+- `hacs.json` installs from the repository contents rather than a release zip. Releases are published on GitHub from v2.3.0, so HACS shows version numbers and offers updates when a release is published.
 
 ## Included from upstream beta (v1.9.8b / v1.9.9b, not in stable v1.9.7)
 

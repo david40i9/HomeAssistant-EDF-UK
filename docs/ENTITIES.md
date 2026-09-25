@@ -51,7 +51,7 @@ Per electricity meter. Import and export meters both get these.
 
 ### Rates
 
-Prices are the ones you're charged: direct debit prices when your account pays by direct debit. Export tariffs use the rate on your account agreement, as EDF doesn't publish export product prices.
+Prices are the ones you're charged: direct debit prices when your account pays by direct debit. When EDF won't publish a tariff's prices (export tariffs, and tariffs it hides for a week or two after launching a new version), they come from the prices EDF applies to your account instead.
 
 | Entity | Type | Unit | What it shows | Useful attributes |
 |---|---|---|---|---|
@@ -75,12 +75,14 @@ Prices are the ones you're charged: direct debit prices when your account pays b
 
 ### Consumption and cost
 
-EDF's half-hourly data usually arrives a day or two late, so the "previous" sensors cover the most recent day EDF has published, not necessarily yesterday. Check the `start`/`end` attributes for the exact period.
+EDF's half-hourly data usually arrives a day or two late, so the "previous" sensors cover the most recent *complete* UK day EDF has published (every half hour present), not necessarily yesterday. Check the `start`/`end` attributes for the exact period. Export meters read their data from EDF's smart meter measurements, as EDF's usual consumption endpoint returns nothing for export.
+
+If all the consumption sensors stay unknown, check the *Smart Meter Data Frequency* diagnostic sensor: half-hourly data needs `HALF_HOURLY`.
 
 | Entity | Type | Unit | What it shows | Useful attributes |
 |---|---|---|---|---|
 | EDF Electricity Meter Reading ({serial}/{mpan}) | sensor | kWh | Latest meter register reading (customer, smart or estimated). Readings EDF has quarantined as suspect are skipped | `read_at`, `registers` (every register, e.g. day and night on Economy 7 meters) |
-| EDF Electricity Previous Accumulative Consumption ({serial}/{mpan}) | sensor | kWh | Total consumption for the latest published day. **Use this in the Energy dashboard** | `start`, `end`, `charges` (per half hour), `total` |
+| EDF Electricity Previous Accumulative Consumption ({serial}/{mpan}) | sensor | kWh | Total consumption for the latest complete day. **Use this in the Energy dashboard** | `start`, `end`, `charges` (per half hour), `total` |
 | EDF Electricity Previous Accumulative Cost ({serial}/{mpan}) | sensor | GBP | Cost for that day, including standing charge | `total_without_standing_charge`, `standing_charge`, `charges` |
 | EDF Electricity Previous Peak / Off-Peak Consumption ({serial}/{mpan}) | sensor | kWh | That day's usage split by peak and off-peak rate | `is_economy_7` |
 | EDF Electricity Previous Peak / Off-Peak Cost ({serial}/{mpan}) | sensor | GBP | That day's cost split by peak and off-peak rate | `is_economy_7` |

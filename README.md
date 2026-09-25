@@ -3,7 +3,7 @@
 > [!IMPORTANT]
 > **Looking for an EDF integration?** [stevekirtley/HomeAssistant-EDFEnergy](https://github.com/stevekirtley/HomeAssistant-EDFEnergy) is the more mature and actively maintained EDF Energy integration, with tests, documentation and EDF extras such as free electricity sessions, Flextras, cost trackers and tariff comparison. **For most people, that's the one to use.**
 >
-> This fork is a personal project that fixes and extends [Bobby5291's integration](https://github.com/Bobby5291/HomeAssistant-EDF-UK). It includes a few things Steve's doesn't yet (account balance, payment and direct debit sensors, meter readings and a GraphQL debug service), which I hope to contribute there. The two can run side by side.
+> This fork is a personal project that fixes and extends [Bobby5291's integration](https://github.com/Bobby5291/HomeAssistant-EDF-UK). It includes a few things Steve's doesn't yet (export consumption, account balance, payment, statement and direct debit sensors, meter readings and a GraphQL debug service), which I hope to contribute there. The two can run side by side.
 
 [![Version](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fdavid40i9%2FHomeAssistant-EDF-UK%2Fmain%2Fcustom_components%2Fedf_energy_uk%2Fmanifest.json&query=%24.version&label=version&style=for-the-badge)](FORK_CHANGES.md)
 [![GitHub Stars](https://img.shields.io/github/stars/david40i9/HomeAssistant-EDF-UK.svg?style=for-the-badge)](https://github.com/david40i9/HomeAssistant-EDF-UK/stargazers)
@@ -20,10 +20,11 @@ This is a personal fork of [Bobby5291/HomeAssistant-EDF-UK](https://github.com/B
 
 ## Features
 
-- EDF UK account integration (balances, direct debit, last payment, tariffs, contract end dates)
-- Electricity (import and export) and gas rates, standing charges and cost tracking, using your direct debit prices where they apply
+- EDF UK account integration: balances, direct debit (current, next payment and EDF's suggested amount), last payment, last statement, rewards, tariffs and contract end dates
+- Electricity (import and export) and gas rates, standing charges and cost tracking, using your direct debit prices where they apply, and your account's own prices for tariffs EDF doesn't publish
 - Meter register readings for electricity (import and export) and gas, including every register on multi-rate meters
-- Previous-day consumption and cost for the Home Assistant Energy Dashboard
+- Previous-day consumption and cost, import **and export**, for the Home Assistant Energy Dashboard (return to grid included)
+- Diagnostics such as your smart meter data frequency, which explains missing half-hourly data
 - EDF Smart Charging (EV) support (not yet widely tested)
 
 See **[docs/ENTITIES.md](docs/ENTITIES.md)** for every sensor, control, event and service the integration exposes, what each one means, and how to set up the Energy dashboard.
@@ -41,7 +42,7 @@ This integration is still under development. You may encounter:
 - API changes on EDF's side
 - Limited documentation
 
-Some data depends on your EDF account. For example, EDF doesn't return annual consumption estimates for every account, and those sensors then stay unknown. EDF doesn't provide live smart meter data at all; its half-hourly consumption data arrives a day or so later instead.
+Some data depends on your EDF account. For example, EDF doesn't return annual consumption estimates for every account, and those sensors then stay unknown. EDF doesn't provide live smart meter data at all; its half-hourly consumption data arrives a day or so later instead, and the previous-day sensors wait until a day is complete.
 
 ---
 
@@ -57,7 +58,7 @@ Some data depends on your EDF account. For example, EDF doesn't return annual co
 https://github.com/david40i9/HomeAssistant-EDF-UK
 ```
 
-4. Download **EDF Energy UK**
+4. Download **EDF Energy UK** (the latest [release](https://github.com/david40i9/HomeAssistant-EDF-UK/releases))
 5. Restart Home Assistant
 
 This integration's internal name is `edf_energy_uk`, so it can run alongside [stevekirtley's EDF Energy integration](https://github.com/stevekirtley/HomeAssistant-EDFEnergy) (`edf_energy`). Both log in to EDF separately.
