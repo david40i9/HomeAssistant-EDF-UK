@@ -8,7 +8,7 @@ from homeassistant.components.recorder import get_instance
 from homeassistant.components.recorder.models import StatisticData
 from homeassistant.components.recorder.statistics import statistics_during_period
 
-from ..utils.conversions import consumption_cost_in_pence, pence_to_pounds_pence
+from ..utils.conversions import consumption_cost_in_pence, pence_to_pounds_pence_accurate, round_pounds
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -112,7 +112,10 @@ def build_cost_statistics(
             continue
 
         if target_rate_value is None or target_rate_value == rate["value_inc_vat"]:
-            cost_gbp = pence_to_pounds_pence(
+            # Accumulate at full precision and round only when the statistic is emitted. Rounding each
+            # half hour to the nearest penny first compounds across the 48 daily slots and inflates the
+            # imported cost (stevekirtley/HomeAssistant-EDFEnergy#30).
+            cost_gbp = pence_to_pounds_pence_accurate(
                 consumption_cost_in_pence(consumption[consumption_key], rate["value_inc_vat"])
             )
             running_sum += cost_gbp
@@ -124,8 +127,8 @@ def build_cost_statistics(
                 StatisticData(
                     start=bucket_start,
                     last_reset=last_reset,
-                    sum=running_sum,
-                    state=running_state,
+                    sum=round_pounds(running_sum),
+                    state=round_pounds(running_state),
                 )
             )
             running_state = 0.0

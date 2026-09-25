@@ -120,6 +120,7 @@ account_query = '''query {{
           validFrom
           validTo
           tariff {{
+            __typename
             ... on TariffType {{
               productCode
               tariffCode
@@ -130,6 +131,11 @@ account_query = '''query {{
               tariffCode
               displayName
               standingCharge
+              unitRates {{
+                value
+                validFrom
+                validTo
+              }}
             }}
             ... on StandardTariff {{
               unitRate
@@ -150,6 +156,8 @@ account_query = '''query {{
               productCode
               tariffCode
               displayName
+              unitRate
+              standingCharge
             }}
           }}
         }}
@@ -178,6 +186,7 @@ account_query = '''query {{
           validFrom
           validTo
           tariff {{
+            __typename
             ... on TariffType {{
               tariffCode
               productCode
@@ -281,6 +290,22 @@ def get_valid_from(rate):
 def get_start(rate):
   return (rate["start"].timestamp(), rate["start"].fold)
 
+def _payment_method_is_favoured(payment_method: str, favour_direct_debit_rates: bool):
+  return (payment_method.lower() == "direct_debit") == (favour_direct_debit_rates == True)
+
+def _favoured_payment_method_available(items, favour_direct_debit_rates: bool):
+  """Whether the favoured payment method appears anywhere in the data. The other method is only
+  excluded when the favoured one is present, so tariffs that publish a single payment method
+  (e.g. dynamic tariffs that are direct debit only) still produce rates.
+  From stevekirtley/HomeAssistant-EDFEnergy (MIT)."""
+  return any(item.get("payment_method") is not None and _payment_method_is_favoured(item["payment_method"], favour_direct_debit_rates) for item in items)
+
+def _should_skip_for_payment_method(item, favour_direct_debit_rates: bool, favoured_available: bool):
+  payment_method = item.get("payment_method")
+  if payment_method is None:
+    return False
+  return favoured_available and not _payment_method_is_favoured(payment_method, favour_direct_debit_rates)
+
 def rates_to_thirty_minute_increments(data, period_from: datetime, period_to: datetime, tariff_code: str, price_cap: float = None, favour_direct_debit_rates = True):
   """Process the collection of rates to ensure they're in 30 minute periods"""
   starting_period_from = period_from
@@ -289,14 +314,11 @@ def rates_to_thirty_minute_increments(data, period_from: datetime, period_to: da
     items = data["results"]
     items.sort(key=get_valid_from)
 
+    favoured_available = _favoured_payment_method_available(items, favour_direct_debit_rates)
+
     for item in items:
       # EDF returns separate direct debit and non direct debit prices - only use the ones that apply (ported from Octopus Energy)
-      if ("payment_method" in item and
-          item["payment_method"] is not None and
-          (
-            (item["payment_method"].lower() == "direct_debit" and favour_direct_debit_rates != True) or
-            (item["payment_method"].lower() != "direct_debit" and favour_direct_debit_rates != False)
-          )):
+      if _should_skip_for_payment_method(item, favour_direct_debit_rates, favoured_available):
         continue
 
       value_inc_vat = float(item["value_inc_vat"])
@@ -335,13 +357,9 @@ def rates_to_thirty_minute_increments(data, period_from: datetime, period_to: da
   return results
 
 def get_standing_charge(data: list, tariff_code: str, favour_direct_debit_rates: bool = True):
+  favoured_available = _favoured_payment_method_available(data, favour_direct_debit_rates)
   for item in data:
-    if ("payment_method" in item and
-        item["payment_method"] is not None and
-        (
-          (item["payment_method"].lower() == "direct_debit" and favour_direct_debit_rates != True) or
-          (item["payment_method"].lower() != "direct_debit" and favour_direct_debit_rates != False)
-        )):
+    if _should_skip_for_payment_method(item, favour_direct_debit_rates, favoured_available):
       continue
 
     return {
@@ -560,9 +578,11 @@ class EDFEnergyApiClient:
     for point in ((account_info or {}).get("electricity_meter_points") or []) + ((account_info or {}).get("gas_meter_points") or []):
       for agreement in point.get("agreements") or []:
         tariff_code = agreement.get("tariff_code")
-        if tariff_code is not None and (agreement.get("unit_rate") is not None or agreement.get("standing_charge") is not None):
+        if tariff_code is not None and (agreement.get("unit_rate") is not None or agreement.get("unit_rates") or agreement.get("standing_charge") is not None):
           self._agreement_rates[tariff_code] = {
+            "tariff_type": agreement.get("tariff_type"),
             "unit_rate": agreement.get("unit_rate"),
+            "unit_rates": agreement.get("unit_rates") or [],
             "standing_charge": agreement.get("standing_charge"),
           }
 
@@ -619,7 +639,13 @@ class EDFEnergyApiClient:
         "tariff_code": a["tariff"]["tariffCode"] if "tariff" in a and "tariffCode" in a["tariff"] else None,
         "product_code": a["tariff"]["productCode"] if "tariff" in a and "productCode" in a["tariff"] else None,
         "display_name": a["tariff"]["displayName"] if "tariff" in a and "displayName" in a["tariff"] else None,
+        "tariff_type": a["tariff"].get("__typename") if a.get("tariff") else None,
         "unit_rate": a["tariff"].get("unitRate") if a.get("tariff") else None,
+        "unit_rates": [
+          {"value": r.get("value"), "valid_from": r.get("validFrom"), "valid_to": r.get("validTo")}
+          for r in (a["tariff"].get("unitRates") or [])
+          if r.get("value") is not None and r.get("validFrom") is not None
+        ] if a.get("tariff") else [],
         "standing_charge": a["tariff"].get("standingCharge") if a.get("tariff") else None,
       },
       meter_point["meterPoint"]["agreements"]
@@ -659,7 +685,13 @@ class EDFEnergyApiClient:
         "end": a["validTo"],
         "tariff_code": a["tariff"]["tariffCode"] if "tariff" in a and "tariffCode" in a["tariff"] else None,
         "product_code": a["tariff"]["productCode"] if "tariff" in a and "productCode" in a["tariff"] else None,
+        "tariff_type": a["tariff"].get("__typename") if a.get("tariff") else None,
         "unit_rate": a["tariff"].get("unitRate") if a.get("tariff") else None,
+        "unit_rates": [
+          {"value": r.get("value"), "valid_from": r.get("validFrom"), "valid_to": r.get("validTo")}
+          for r in (a["tariff"].get("unitRates") or [])
+          if r.get("value") is not None and r.get("validFrom") is not None
+        ] if a.get("tariff") else [],
         "standing_charge": a["tariff"].get("standingCharge") if a.get("tariff") else None,
       },
       meter_point["meterPoint"]["agreements"]
@@ -1197,11 +1229,26 @@ class EDFEnergyApiClient:
     return results
 
   def __agreement_rates(self, tariff_code: str, period_from: datetime, period_to: datetime):
-    """Flat 30 minute rates built from the unit rate on the account agreement, or None if unknown."""
-    unit_rate = (self._agreement_rates.get(tariff_code) or {}).get("unit_rate")
-    if unit_rate is None:
-      return None
-    return rates_to_thirty_minute_increments({"results": [{"value_inc_vat": unit_rate, "valid_from": None, "valid_to": None}]}, period_from, period_to, tariff_code)
+    """30 minute rates built from the prices on the account agreement, or None if unknown.
+
+    Flat tariffs (standard, prepay, gas) carry a single unit rate. Half-hourly tariffs such as
+    Go Electric carry the current day's dated rate bands. Day/night tariffs carry prices but not
+    their time bands, so they are left to the pricing API. Approach from
+    stevekirtley/HomeAssistant-EDFEnergy (MIT).
+    """
+    info = self._agreement_rates.get(tariff_code) or {}
+    if info.get("unit_rate") is not None:
+      return rates_to_thirty_minute_increments({"results": [{"value_inc_vat": info["unit_rate"], "valid_from": None, "valid_to": None}]}, period_from, period_to, tariff_code)
+
+    bands = info.get("unit_rates") or []
+    if bands:
+      results = rates_to_thirty_minute_increments({"results": [
+        {"value_inc_vat": band["value"], "valid_from": band["valid_from"], "valid_to": band["valid_to"]}
+        for band in bands
+      ]}, period_from, period_to, tariff_code)
+      return results if results else None
+
+    return None
 
   def __agreement_standing_charge(self, tariff_code: str):
     """Standing charge from the account agreement, or None if unknown."""

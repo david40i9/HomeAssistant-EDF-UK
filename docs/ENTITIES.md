@@ -79,9 +79,9 @@ EDF's half-hourly data usually arrives a day or two late, so the "previous" sens
 | EDF Electricity Previous Peak / Off-Peak Cost ({serial}/{mpan}) | sensor | GBP | That day's cost split by peak and off-peak rate | `is_economy_7` |
 | EDF Electricity Daily / Weekly / Monthly Cost ({serial}/{mpan}) | sensor | GBP | Running cost for the current day, week and month | `period_start` |
 
-### Live data (smart meters only)
+### Live data (not available from EDF)
 
-Created when **Supports live consumption** is ticked when adding or reconfiguring the integration, and the meter has a smart device ID. EDF doesn't serve live telemetry for many meters (`KT-GB-4039`); these sensors then stay unavailable.
+These are created only when **Supports live consumption** is ticked and the meter has a smart device ID. **EDF doesn't provide live smart meter data**: its telemetry query always answers `KT-GB-4039` ("Unable to query smart meter telemetry data"), as stevekirtley confirmed with EDF, so these sensors stay unavailable. Leave the option unticked. They're listed here only because the code, inherited from Octopus Energy, still supports them.
 
 | Entity | Unit | What it shows |
 |---|---|---|

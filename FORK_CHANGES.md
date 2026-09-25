@@ -1,6 +1,6 @@
 # Fork changes
 
-This fork of [Bobby5291/HomeAssistant-EDF-UK](https://github.com/Bobby5291/HomeAssistant-EDF-UK) is based on upstream `main` (the `v1.9.9b` beta plus the NOTICE file) with extra fixes on top. Fork version: **2.0.0** (shown in Home Assistant under the integration's details).
+This fork of [Bobby5291/HomeAssistant-EDF-UK](https://github.com/Bobby5291/HomeAssistant-EDF-UK) is based on upstream `main` (the `v1.9.9b` beta plus the NOTICE file) with extra fixes on top. Fork version: **2.0.1** (shown in Home Assistant under the integration's details).
 
 ## 2.0.0: new internal name `edf_energy_uk`
 
@@ -64,6 +64,14 @@ Already present or not applicable: statistics `mean_type` (#1630/#1653), cost ro
 - **[#24](https://github.com/Bobby5291/HomeAssistant-EDF-UK/issues/24) Log spam and unknown sensors.** Meter readings, `grossAmount`, the EAC state class and the manifest version are fixed (see above). Expected EDF responses (`KT-GB-4039` live telemetry not available, `KT-CT-1111` annual consumption) are logged at debug instead of repeating as warnings; annual gas now gets the same handling as electricity. Diagnostics keep a `has_device_id` flag instead of dropping the field.
 - From PR #32: a disabled-by-default **EDF Auth Token Expiry** diagnostic sensor.
 
+### Fixes learned from stevekirtley/HomeAssistant-EDFEnergy
+
+Found by reading the issues and code of [stevekirtley's EDF integration](https://github.com/stevekirtley/HomeAssistant-EDFEnergy) (MIT):
+
+- **Direct debit filter too strict** ([#10](https://github.com/stevekirtley/HomeAssistant-EDFEnergy/issues/10)). If a tariff publishes only one payment method (e.g. FreePhase Dynamic is direct debit only) and it isn't the account's, every rate was discarded. The other method is now only excluded when the preferred one is actually present.
+- **Imported cost statistics rounded every half hour to the penny** ([#30](https://github.com/stevekirtley/HomeAssistant-EDFEnergy/issues/30)), which can put a day's imported cost several percent out. Costs now accumulate at full precision and are rounded once per statistic.
+- **Hidden tariffs** ([#23](https://github.com/stevekirtley/HomeAssistant-EDFEnergy/issues/23), [#32](https://github.com/stevekirtley/HomeAssistant-EDFEnergy/issues/32)). When EDF launches a new version of a tariff it hides the old one from the pricing API for a week or two, and customers still on it get unknown rates. The agreement-rate fallback (added for export tariffs) now also covers half-hourly tariffs such as Go Electric, using the current day's dated rate bands on the agreement, plus prepay tariffs.
+
 ### Smart Charging (EV)
 
 - **Missing sensors.** *EDF Intelligent Current State* and *EDF Intelligent Dispatches Last Retrieved* were written and imported but never created, and weren't `SensorEntity` subclasses. They're now proper sensors and are created when a Smart Charging device is present.
@@ -87,5 +95,6 @@ Already present or not applicable: statistics `mean_type` (#1630/#1653), cost ro
 ## Not yet resolved
 
 - Annual consumption (EAC/AQ) returns `KT-CT-1111` for some accounts; EDF indicates this is expected for newer accounts.
-- Live smart meter telemetry (current demand / current consumption sensors) isn't provided by EDF for many meters (`KT-GB-4039`); those sensors stay unavailable.
+- EDF doesn't provide live smart meter telemetry at all (`KT-GB-4039`, confirmed with EDF by stevekirtley), so the current demand / current consumption sensors stay unavailable. The option to enable them is still offered; leave it unticked.
+- Day/night (Economy 7) tariffs can't be priced from the account agreement when EDF hides the product, as the agreement doesn't include the time bands.
 - Rate and standing charge sensors still use `monetary` + `total`. Octopus Energy v19 moved them to `measurement` for min/max/average statistics; that change would make Home Assistant ask to delete their existing statistics, so it hasn't been made.
