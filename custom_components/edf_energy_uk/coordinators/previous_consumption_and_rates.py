@@ -4,7 +4,7 @@
 from datetime import datetime, timedelta
 import logging
 
-from homeassistant.util.dt import utcnow
+from homeassistant.util.dt import as_local, as_utc, utcnow
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from ..const import (
@@ -36,6 +36,31 @@ def __sort_consumption(consumption_data):
     return sorted_data
 
 
+def get_latest_day(consumption_data: list | None):
+    """Return the half hours of the most recent complete local (UK) day, or None.
+
+    Same approach as @stevekirtley's EDF integration and Octopus Energy: EDF publishes consumption late
+    and in pieces, so a day is only used once every half hour is present. The expected count follows the
+    day's length, so the clock-change days (46 or 50 half hours) are handled too.
+    """
+    if not consumption_data:
+        return None
+
+    days = {}
+    for item in consumption_data:
+        days.setdefault(as_local(item["start"]).date(), []).append(item)
+
+    for day in sorted(days.keys(), reverse=True):
+        items = days[day]
+        day_start = as_local(items[0]["start"]).replace(hour=0, minute=0, second=0, microsecond=0)
+        next_day_start = (day_start + timedelta(days=1, hours=2)).replace(hour=0, minute=0, second=0, microsecond=0)
+        expected = int((as_utc(next_day_start) - as_utc(day_start)).total_seconds() // 1800)
+        if len({as_utc(item["start"]) for item in items}) == expected:
+            return __sort_consumption(items)
+
+    return None
+
+
 class PreviousConsumptionCoordinatorResult(BaseCoordinatorResult):
     consumption: list
     rates: list
@@ -65,25 +90,43 @@ async def async_fetch_consumption_and_rates(
     if account_info is None:
         return previous_data
 
-    tariff = (
-        get_electricity_meter_tariff(current, account_info, identifier, serial_number)
-        if is_electricity
-        else get_gas_meter_tariff(current, account_info, identifier, serial_number)
-    )
-
-    if tariff is None:
-        return previous_data
-
-    period_from = utcnow().replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=1)
-    period_to = period_from + timedelta(days=1)
+    # Look back over the last few local days and use the latest complete one. Previously this took
+    # yesterday in UTC, which during BST ran 1am to 1am and accepted a day with only a few readings.
+    today_start = as_utc(as_local(current).replace(hour=0, minute=0, second=0, microsecond=0))
+    search_from = as_utc(as_local(current - timedelta(days=4)).replace(hour=0, minute=0, second=0, microsecond=0))
 
     try:
         if is_electricity:
-            consumption_data = await client.async_get_electricity_consumption(identifier, serial_number, period_from, period_to)
+            consumption_data = await client.async_get_electricity_consumption(identifier, serial_number, search_from, today_start, page_size=250)
+        else:
+            consumption_data = await client.async_get_gas_consumption(identifier, serial_number, search_from, today_start, page_size=250)
+
+        consumption_data = get_latest_day(consumption_data)
+        if consumption_data is None:
+            _LOGGER.debug(f"{'electricity' if is_electricity else 'gas'} {identifier}/{serial_number}: no complete day of consumption yet")
+            return PreviousConsumptionCoordinatorResult(
+                current,
+                1,
+                previous_data.consumption if previous_data is not None else None,
+                previous_data.rates if previous_data is not None else None,
+                previous_data.standing_charge if previous_data is not None else None,
+            )
+
+        period_from = consumption_data[0]["start"]
+        period_to = consumption_data[-1]["end"]
+
+        tariff = (
+            get_electricity_meter_tariff(period_from, account_info, identifier, serial_number)
+            if is_electricity
+            else get_gas_meter_tariff(period_from, account_info, identifier, serial_number)
+        )
+        if tariff is None:
+            return previous_data
+
+        if is_electricity:
             rate_data = await client.async_get_electricity_rates(tariff.product, tariff.code, period_from, period_to)
             standing_charge = await client.async_get_electricity_standing_charge(tariff.product, tariff.code, period_from, period_to)
         else:
-            consumption_data = await client.async_get_gas_consumption(identifier, serial_number, period_from, period_to)
             rate_data = await client.async_get_gas_rates(tariff.product, tariff.code, period_from, period_to)
             standing_charge = await client.async_get_gas_standing_charge(tariff.product, tariff.code, period_from, period_to)
 

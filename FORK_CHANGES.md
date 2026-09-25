@@ -100,6 +100,10 @@ Four account sensors from fields found in EDF's GraphQL schema: `paginatedPaymen
 
 EDF's REST consumption endpoint returns nothing for export meters, so every export consumption sensor was unknown. The account's `properties.measurements` connection has the same half-hourly smart meter data, and filtering it with `readingDirection: GENERATION` and the export MPAN returns export. Import figures from `measurements` match the REST consumption exactly, which confirmed the filter works. Export meters now read from `measurements` and fall back to REST if it returns nothing.
 
+### Previous day: latest complete UK day
+
+The previous consumption coordinator (from Bobby5291's version) asked for yesterday in UTC and accepted it with as few as three readings. During BST that shifted the day to 1am–1am, so charging between midnight and 1am landed on the wrong day (this account showed 15.858 kWh for a day that was really 12.814), and a partly published day showed a partial total. It now fetches the last few days and uses the most recent local day with every half hour present, as @stevekirtley's integration and Octopus Energy do. The expected count follows the day's length, so clock-change days work, and rates are fetched for exactly that day.
+
 ### Thanks
 
 - **@Bobby5291** for the original EDF UK integration and the credentials fix in PR #32.

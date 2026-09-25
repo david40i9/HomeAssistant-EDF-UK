@@ -2,6 +2,11 @@
 
 Version history of this fork. Versions are shown in Home Assistant under the integration's details. Credits in brackets name the people whose fixes, reports or findings each change is based on. For the reasoning behind each fix, see [FORK_CHANGES.md](FORK_CHANGES.md); for what every entity does, see [docs/ENTITIES.md](docs/ENTITIES.md).
 
+## 2.2.1 (2026-09-25)
+
+### Fixed
+- **Previous day consumption and cost used the wrong day.** "Yesterday" was taken in UTC, so during British Summer Time it ran from 1am to 1am, and a day was used even if EDF had only published a few readings. The sensors now show the most recent *complete* UK day (every half hour present, including the 46- and 50-half-hour clock-change days), so they match your bill and no longer go blank while EDF catches up. (Approach from @stevekirtley's integration and @BottlecapDave's Octopus Energy.)
+
 ## 2.2.0 (2026-09-25)
 
 ### Added
