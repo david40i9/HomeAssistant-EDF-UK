@@ -104,6 +104,116 @@ EFFICIENCY_RULES: list[tuple[str, float]] = [
 ]
 EFFICIENCY_RULES_C = [(re.compile(p), v) for p, v in EFFICIENCY_RULES]
 
+# ---------------------------------------------------------------------------
+# 0-62 mph (seconds) - manufacturer-quoted figures, researched September 2026.
+# NOT in the source list. Rule: (regex on base Type, seconds, source, engine cc or None).
+# First match wins. Anything unmatched is left blank and reported - never guessed.
+# ---------------------------------------------------------------------------
+ACCEL_RULES: list[tuple[str, float, str, int | None]] = [
+    # BMW
+    (r"^1 SERIES .*\b123\b", 6.3, "Auto Express", None),
+    (r"^1 SERIES .*\b120\b", 7.8, "Auto Express", None),
+    (r"^2 SERIES GRAN COUPE .*\b223\b", 6.4, "BMW UK / What Car?", None),
+    (r"^2 SERIES GRAN COUPE .*\b220\b", 7.9, "BMW UK / What Car?", None),
+    (r"^2 SERIES ACTIVE TOURER .*\b223I\b", 7.0, "Parkers", None),
+    (r"^2 SERIES ACTIVE TOURER .*\b220I\b", 8.1, "Parkers", None),
+    (r"^3 SERIES SALOON .*\b320I\b", 7.4, "BMW UK", None),
+    (r"^3 SERIES TOURING .*\b320I\b", 7.6, "BMW UK", None),
+    (r"^X1 .*\bSDRIVE 18D\b", 8.9, "What Car? / Top Gear", None),
+    (r"^X1 .*\bSDRIVE 20I\b", 8.3, "What Car? / Top Gear", None),
+    (r"^X1 .*\bXDRIVE 23I\b", 7.1, "What Car? / Top Gear", None),
+    (r"^X1 .*\bXDRIVE 23D\b", 7.4, "What Car? / Top Gear", None),
+    (r"^X2 .*\bSDRIVE 20I\b", 8.3, "What Car?", None),
+    (r"^I5 SALOON\b", 6.0, "BMW UK", None),
+    (r"^I5 TOURING\b", 6.1, "BMW UK", None),
+    (r"^IX[12] .*\bEDRIVE20\b", 8.6, "BMW UK / DrivingElectric", None),
+    (r"^IX[12] .*\bXDRIVE30\b", 5.6, "BMW UK / DrivingElectric", None),
+    (r"^IX3\b", 5.9, "BMW Group press (iX3 40)", None),
+    # BYD
+    (r"^DOLPHIN SURF .*\b65KW\b.*\b30 ?KWH\b", 11.1, "Auto Express", None),
+    (r"^DOLPHIN SURF .*\b65KW\b", 12.1, "Auto Express", None),
+    (r"^DOLPHIN SURF .*\b115KW\b", 9.1, "Auto Express", None),
+    (r"^DOLPHIN\b(?! SURF)", 7.0, "BYD UK / DriveElectric", None),
+    (r"^ATTO 2\b", 7.9, "Autocar (BYD claim)", None),
+    (r"^ATTO 3\b.*\bAWD\b", 3.9, "Autocar", None),
+    (r"^ATTO 3\b", 5.5, "GreenCarGuide", None),
+    (r"^SEAL SALOON\b.*\bAWD\b", 3.8, "GreenCarGuide", None),
+    (r"^SEAL SALOON\b", 5.9, "GreenCarGuide", None),
+    (r"^SEALION 7\b.*\bAWD\b", 4.5, "BYD UK", None),
+    (r"^SEALION 7\b", 6.7, "BYD UK", None),
+    # Lexus
+    (r"^RZ .*\b350E\b", 7.5, "Lexus UK", None),
+    (r"^RZ .*\b500E\b", 4.6, "Lexus UK", None),
+    (r"^ES ELECTRIC\b", 8.0, "Lexus UK", None),
+    (r"^LBX .*\bAWD\b", 9.6, "Lexus UK", None),
+    (r"^LBX\b", 9.2, "Lexus UK", None),
+    (r"^UX .*\b300H\b", 8.1, "Lexus (FWD)", None),
+    (r"^NX .*\b350H\b", 7.7, "Lexus UK (AWD)", None),
+    # Mercedes-Benz
+    (r"^CLA ELECTRIC SHOOTING BRAKE .*\bCLA 200\b", 7.6, "Mercedes UK / Carwow", None),
+    (r"^CLA ELECTRIC SHOOTING BRAKE .*\bCLA 250\+", 6.8, "Mercedes UK / Carwow", None),
+    (r"^CLA ELECTRIC SHOOTING BRAKE .*\bCLA 350\b", 5.0, "Mercedes UK / Carwow", None),
+    (r"^CLA ELECTRIC SALOON .*\bCLA 200\b", 7.5, "Mercedes / ArenaEV", None),
+    (r"^CLA ELECTRIC SALOON .*\bCLA 250\+", 6.7, "Mercedes / ArenaEV", None),
+    (r"^CLA ELECTRIC SALOON .*\bCLA 350\b", 4.9, "Mercedes / Fleet News", None),
+    (r"^GLB ELECTRIC .*\bGLB 250\+", 7.4, "Fleet News", None),
+    (r"^GLB ELECTRIC .*\bGLB 350\b", 5.5, "Fleet News", None),
+    (r"^A CLASS DIESEL .*\bA200D\b", 8.1, "Parkers", None),
+    (r"^A CLASS .*\bA180\b", 9.2, "Parkers", None),
+    (r"^A CLASS .*\bA200\b", 8.2, "Parkers", None),
+    (r"^CLA SHOOTING BRAKE .*\bCLA 180\b", 9.6, "automobile-catalog (pre-2025 CLA)", 1332),
+    (r"^CLA SHOOTING BRAKE .*\bCLA 180\b", 8.9, "Autoblog (CLA hybrid)", None),
+    (r"^CLA SALOON .*\bCLA 180\b", 8.8, "Parkers (CLA hybrid)", None),
+    (r"^CLA SALOON .*\bCLA 200\b", 8.0, "Parkers (CLA hybrid)", None),
+    (r"^GLA .*\bGLA 180\b", 9.6, "Top Gear spec", None),
+    (r"^GLA .*\bGLA 200\b", 8.9, "Auto Express", None),
+    # Mini
+    (r"^ACEMAN .*\b(?:JOHN COOPER WORKS|JCW)\b", 6.4, "BMW Group press", None),
+    (r"^ACEMAN .*\bSE\b", 7.1, "BMW Group press", None),
+    (r"^ACEMAN .*\bE\b", 7.9, "BMW Group press", None),
+    (r"^COUNTRYMAN ELECTRIC .*\bSE\b.*\bALL4\b", 5.6, "MINI (0-100 km/h)", None),
+    (r"^COUNTRYMAN ELECTRIC .*\bE\b", 8.6, "Autocar", None),
+    (r"^COUNTRYMAN HATCHBACK 1\.5 C\b", 8.3, "MINI (0-100 km/h)", None),
+    (r"^COOPER HATCHBACK 2\.0 S\b", 6.8, "BMW Group press (5-door)", None),
+    (r"^COOPER HATCHBACK 1\.5 C\b", 8.0, "BMW Group press (5-door)", None),
+    # Toyota
+    (r"^AYGO X\b", 9.2, "Toyota UK", None),
+    (r"^YARIS CROSS .*\b130\b.*\bAWD\b", 11.3, "Toyota UK", None),
+    (r"^YARIS CROSS .*\b130\b", 10.7, "Toyota UK", None),
+    (r"^YARIS CROSS .*\bAWD\b", 11.8, "Toyota UK", None),
+    (r"^YARIS CROSS\b", 11.2, "Toyota UK", None),
+    (r"^YARIS HATCHBACK .*\b130\b", 9.2, "DrivingElectric", None),
+    (r"^YARIS HATCHBACK\b", 9.7, "DrivingElectric", None),
+    (r"^COROLLA TOURING SPORT .*\b2\.0\b", 7.7, "Toyota UK", None),
+    (r"^COROLLA TOURING SPORT .*\b1\.8\b", 9.4, "Toyota UK", None),
+    (r"^COROLLA HATCHBACK .*\b2\.0\b", 7.4, "DrivingElectric", None),
+    (r"^COROLLA HATCHBACK .*\b1\.8\b", 9.1, "DrivingElectric", None),
+    (r"^C-HR HATCHBACK .*\b2\.0\b", 8.1, "Toyota UK", None),
+    (r"^C-HR HATCHBACK .*\b1\.8\b", 9.9, "Toyota UK", None),
+    (r"^C-HR\+ .*\bAWD\b", 5.2, "Toyota UK", None),
+    (r"^C-HR\+ .*\b123KW\b", 8.4, "Auto Express", None),
+    (r"^C-HR\+ ", 7.3, "Parkers", None),
+    (r"^BZ4X ELECTRIC TOURING\b.*\bAWD\b", 4.5, "Top Gear", None),
+    (r"^BZ4X ELECTRIC TOURING\b", 7.3, "Top Gear", None),
+    (r"^BZ4X\b.*\bAWD\b", 5.1, "Carwow", None),
+    (r"^BZ4X\b.*\b123KW\b", 8.6, "Carwow", None),
+    (r"^BZ4X\b", 7.3, "Carwow", None),
+    (r"^URBAN CRUISER .*\b49 ?KWH\b", 9.6, "Parkers", None),
+    (r"^URBAN CRUISER .*\b61 ?KWH\b", 8.7, "Parkers", None),
+    (r"^PROACE CITY VERSO\b", 11.2, "Carwow / Auto Express", None),
+    (r"^PROACE VERSO\b", 13.3, "Parkers (75kWh)", None),
+    # Volvo
+    (r"^EX30 .*\b315KW\b", 3.6, "Volvo UK", None),
+    (r"^EX30 .*\b69 ?KWH\b", 5.3, "Volvo UK", None),
+    (r"^EX30\b", 5.7, "Volvo UK", None),
+    (r"^EX40 .*\b325KW\b", 4.6, "DrivingElectric", None),
+    (r"^EX40 .*\b300KW\b", 4.8, "DrivingElectric", None),
+    (r"^EX40\b", 7.4, "DrivingElectric", None),
+    (r"^EC40\b", 7.3, "Volvo", None),
+    (r"^V60 .*\bB4P?\b", 7.3, "Parkers", None),
+]
+ACCEL_RULES_C = [(re.compile(p), v, src, cc) for p, v, src, cc in ACCEL_RULES]
+
 KWH_RE = re.compile(r"(?<![\d.])(\d{2,3}(?:\.\d+)?)\s?KWH\b")  # "22KWCH" never matches
 KW22_RE = re.compile(r"(?<!\d)22KW|/22\b")  # "TECH/PRO/22" is a truncated 22KWCH
 OPTION_RE = re.compile(r"\s*\[[^\]]*\]")
@@ -111,6 +221,14 @@ OPTION_RE = re.compile(r"\s*\[[^\]]*\]")
 
 def base_type(t: str) -> str:
     return re.sub(r"\s+", " ", OPTION_RE.sub("", t)).strip()
+
+
+def accel(t: str, cc):
+    b = base_type(t)
+    for rx, v, src, need_cc in ACCEL_RULES_C:
+        if rx.search(b) and (need_cc is None or cc == need_cc):
+            return v, src
+    return None, None
 
 
 def efficiency(t: str):
@@ -166,7 +284,7 @@ def main():
         print(f"WARNING: expected columns missing: {missing}")
     extra = [c for c in df.columns if c not in COL.values()]
 
-    rows, failures, no_eff = [], [], []
+    rows, failures, no_eff, no_acc = [], [], [], []
     for i, r in df.iterrows():
         g = lambda k: r.get(COL[k]) if COL[k] in df.columns else None
         t = str(g("type") or "").strip()
@@ -197,6 +315,9 @@ def main():
                 no_eff.append(f"{g('make')} | {t}")
         if problems:
             failures.append(f"row {i + 2}: {g('make')} {t} -> {', '.join(problems)}")
+        acc, acc_src = accel(t, num(r.get("EngineSize")))
+        if acc is None:
+            no_acc.append(f"{g('make')} | {t}")
         extras = {c: (None if pd.isna(r[c]) else (r[c].item() if hasattr(r[c], "item") else r[c])) for c in extra}
         rows.append({
             "id": int(i),
@@ -214,6 +335,8 @@ def main():
             "bik": bik,
             "kwh": kwh,
             "eff": eff,
+            "acc": acc,
+            "accSrc": acc_src,
             "kw22": bool(KW22_RE.search(t)),
             "x": extras,
         })
@@ -236,6 +359,7 @@ def main():
         "sheet": sheet,
         "built": date.today().isoformat(),
         "noEff": no_eff,
+        "noAcc": no_acc,
         "failures": failures,
         "effRules": EFFICIENCY_RULES,
     }
@@ -246,6 +370,9 @@ def main():
 
     print(f"\nRows failing to parse: {len(failures)}")
     for f in failures:
+        print("  " + f)
+    print(f"Cars with no 0-62 figure: {len(no_acc)}")
+    for f in no_acc:
         print("  " + f)
     print(f"EVs with no efficiency estimate: {len(no_eff)}")
     for f in no_eff:

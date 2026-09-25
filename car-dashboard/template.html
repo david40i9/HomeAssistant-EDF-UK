@@ -382,6 +382,7 @@ const COLS_ALL = [
   {k:"contrib", h:"Contrib £/m", num:1, sort:d => d.c, cell:d => gbp(d.c), title:"Private Use Contribution per month, after the negative-contribution treatment"},
   {k:"tax", h:"BIK tax £/m", num:1, sort:d => d.tax, cell:d => gbp(d.tax)},
   {k:"net", h:"Net £/m", num:1, sort:d => d.n, cell:d => `<b>${gbp(d.n)}</b>`},
+  {k:"acc", h:"0-62 s†", num:1, sort:d => d.r.acc, cell:d => d.r.acc == null ? '<span class="muted" title="No confirmed manufacturer figure">n/a</span>' : `<span title="Manufacturer-quoted 0-62 mph (source: ${esc(d.r.accSrc)})">${d.r.acc.toFixed(1)}</span>`, title:"0-62 mph in seconds: manufacturer figures looked up separately, not from the car list"},
   {k:"kwh", h:"kWh", num:1, sort:d => d.r.kwh, cell:d => d.r.kwh ?? "–"},
   {k:"eff", h:"mi/kWh*", num:1, sort:d => d.r.eff, cell:d => d.r.eff != null ? d.r.eff.toFixed(1) : (d.r.ev ? '<span class="muted" title="No efficiency estimate for this model">n/a</span>' : "–"), title:"Real-world efficiency: ESTIMATE"},
   {k:"rng", h:"Range mi*", num:1, sort:d => d.rng, cell:d => d.rng == null ? "–" : nf0.format(d.rng), title:"Estimated real-world range"},
@@ -561,6 +562,7 @@ function drawShortlist() {
         <dt>Net @ 20%</dt><dd>${gbp(net(r, S.year, 0.20))}</dd>
         <dt>Net @ 40%</dt><dd>${gbp(net(r, S.year, 0.40))}</dd>
         <dt>Net 2029/30 @ ${S.rate * 100}%</dt><dd>${gbp(net(r, 3, S.rate))}</dd>
+        <dt>0-62 mph†</dt><dd>${r.acc == null ? "–" : r.acc.toFixed(1) + "s"}</dd>
         <dt>Range*</dt><dd>${rg == null ? "–" : nf0.format(rg) + " mi"}</dd>
         <dt>Pence/mile*</dt><dd>${p == null ? "–" : p.toFixed(1) + "p"}</dd>
       </dl><div style="margin-top:6px">${chips(r, net(r))}</div></div>`;
@@ -658,10 +660,10 @@ function drawNegNote() {
 /* CSV export */
 $("#csvBtn").addEventListener("click", () => {
   const rows = tAll.sorted();
-  const head = ["Make","Model","Type","Fuel","BodyStyle","P11D","CO2 g/km","CO2 source",`BIK % ${YEARS[S.year]}`,"Contribution £/m (raw)","Contribution £/m (applied)",`BIK tax £/m @${S.rate*100}%`,"Net £/m","Battery kWh","mi/kWh (estimate)","Range mi (estimate)","p/mile (estimate)","Charging £/yr (estimate)","InsuranceGroup","22kW option", ...DATA.extraCols];
+  const head = ["Make","Model","Type","Fuel","BodyStyle","P11D","CO2 g/km","CO2 source",`BIK % ${YEARS[S.year]}`,"Contribution £/m (raw)","Contribution £/m (applied)",`BIK tax £/m @${S.rate*100}%`,"Net £/m","Battery kWh","mi/kWh (estimate)","Range mi (estimate)","p/mile (estimate)","Charging £/yr (estimate)","0-62 mph s (looked up)","0-62 source","InsuranceGroup","22kW option", ...DATA.extraCols];
   const q = v => { if (v == null) return ""; const s = String(v); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
   const r2 = v => v == null ? "" : Math.round(v * 100) / 100;
-  const lines = [head.map(q).join(",")].concat(rows.map(d => [d.r.make, d.r.model, d.r.type, d.r.fuel, d.r.body, d.r.p11d, d.r.co2, d.r.co2src, d.bik, d.r.contrib, r2(d.c), r2(d.tax), r2(d.n), d.r.kwh, d.r.eff, d.rng == null ? "" : Math.round(d.rng), d.ppm == null ? "" : d.ppm.toFixed(2), r2(d.ann), d.r.ins, d.r.kw22 ? "yes" : "", ...DATA.extraCols.map(c => d.r.x[c])].map(q).join(",")));
+  const lines = [head.map(q).join(",")].concat(rows.map(d => [d.r.make, d.r.model, d.r.type, d.r.fuel, d.r.body, d.r.p11d, d.r.co2, d.r.co2src, d.bik, d.r.contrib, r2(d.c), r2(d.tax), r2(d.n), d.r.kwh, d.r.eff, d.rng == null ? "" : Math.round(d.rng), d.ppm == null ? "" : d.ppm.toFixed(2), r2(d.ann), d.r.acc, d.r.accSrc, d.r.ins, d.r.kw22 ? "yes" : "", ...DATA.extraCols.map(c => d.r.x[c])].map(q).join(",")));
   const blob = new Blob(["﻿" + lines.join("\r\n")], {type:"text/csv;charset=utf-8"});
   const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `car-list-filtered-${YEARS[S.year].replace("/", "-")}.csv`; a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
@@ -671,6 +673,7 @@ $("#csvBtn").addEventListener("click", () => {
 function drawWarnings() {
   const parts = [];
   if (DATA.noEff.length) parts.push(`<p><b>Missing efficiency data</b> (${DATA.noEff.length} EVs): no real-world mi/kWh estimate, so range and running cost are blank.</p><ul class="warnlist">${DATA.noEff.map(t => `<li>${esc(t)}</li>`).join("")}</ul>`);
+  if (DATA.noAcc && DATA.noAcc.length) parts.push(`<p><b>No 0-62 mph figure</b> (${DATA.noAcc.length} cars): no confirmed manufacturer figure, so left blank.</p><ul class="warnlist">${DATA.noAcc.map(t => `<li>${esc(t)}</li>`).join("")}</ul>`);
   if (DATA.failures.length) parts.push(`<p><b>Rows that failed to parse</b> (${DATA.failures.length}):</p><ul class="warnlist">${DATA.failures.map(t => `<li>${esc(t)}</li>`).join("")}</ul>`);
   if (parts.length) { $("#warnCard").hidden = false; $("#warnBody").innerHTML = parts.join(""); }
 }
@@ -682,6 +685,7 @@ function drawFoot() {
     `Monthly BIK tax = P11D × BIK% × income tax rate ÷ 12. Net £/month = Private Use Contribution (after treatment) + BIK tax. Negative means you gain.`,
     `Private Use Contribution is assumed to be monthly. Treatment of negative contributions is <b>unconfirmed</b>: (a) untaxed cash, (b) payroll cash taxed at your rate plus employee NI (${S.niB}% basic, ${S.niH}% higher), (c) zero.`,
     `<b>Estimates:</b> real-world efficiency (mi/kWh) per model is an estimate, not manufacturer data. Range = battery kWh (parsed from the variant name) × ${S.usable} × mi/kWh. Pence/mile = ${S.price}p/kWh ÷ mi/kWh. Charging £/yr = ${nf0.format(S.miles)} miles ÷ mi/kWh × price. Home charging only; public charging costs much more.`,
+    `<b>0-62 mph (†)</b> is not in the car list. These are manufacturer-quoted figures, looked up separately in September 2026 from maker and UK motoring press sites (hover a value for its source). Where no confirmed figure was found, it is left blank.`,
     `Excludes NI on BIK (employer-side only), salary sacrifice effects, fuel benefit, and Scottish income tax bands.`,
     `Data: ${esc(DATA.source)} (sheet “${esc(DATA.sheet)}”), built ${esc(DATA.built)}.`,
   ].map(s => `<li>${s}</li>`).join("");

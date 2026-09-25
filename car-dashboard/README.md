@@ -16,4 +16,7 @@ python build.py new_list.xlsx out.html
   future EV rates, electricity price, mileage) can be edited in the page and recalculates live.
 - Efficiency figures are **estimates**, set in `EFFICIENCY_RULES` in `build.py`. An EV that
   matches no rule is left blank and listed under "Data warnings".
+- 0-62 mph is **not** in the car list. `ACCEL_RULES` in `build.py` holds manufacturer-quoted
+  figures looked up in September 2026, each with its source. A car that matches no rule is
+  left blank and listed under "Data warnings". Add a rule when a new model appears.
 - Chart.js loads from cdnjs. If it can't load, the tables, KPIs and shortlist still work.
