@@ -1,6 +1,6 @@
 # Fork changes
 
-This fork of [Bobby5291/HomeAssistant-EDF-UK](https://github.com/Bobby5291/HomeAssistant-EDF-UK) is based on upstream `main` (the `v1.9.9b` beta plus the NOTICE file) with extra fixes on top. Fork version: **2.1.0** (shown in Home Assistant under the integration's details).
+This fork of [Bobby5291/HomeAssistant-EDF-UK](https://github.com/Bobby5291/HomeAssistant-EDF-UK) is based on upstream `main` (the `v1.9.9b` beta plus the NOTICE file) with extra fixes on top. Fork version: **2.1.0** (shown in Home Assistant under the integration's details). See [CHANGELOG.md](CHANGELOG.md) for the version-by-version history.
 
 ## 2.0.0: new internal name `edf_energy_uk`
 

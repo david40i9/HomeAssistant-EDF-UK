@@ -14,7 +14,7 @@
 
 A custom Home Assistant integration for retrieving and monitoring EDF UK smart meter energy data directly within Home Assistant.
 
-This is a personal fork of [Bobby5291/HomeAssistant-EDF-UK](https://github.com/Bobby5291/HomeAssistant-EDF-UK), with fixes for authentication, rates, meter readings, payments and several upstream issues. See [FORK_CHANGES.md](FORK_CHANGES.md) for the full list.
+This is a personal fork of [Bobby5291/HomeAssistant-EDF-UK](https://github.com/Bobby5291/HomeAssistant-EDF-UK), with fixes for authentication, rates, meter readings, payments and several upstream issues. See [CHANGELOG.md](CHANGELOG.md) for the version history and [FORK_CHANGES.md](FORK_CHANGES.md) for the details behind each fix.
 
 ---
 
