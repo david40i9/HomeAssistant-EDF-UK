@@ -20,6 +20,9 @@ _LOGGER = logging.getLogger(__name__)
 class EDFEnergyGasCurrentRate(CoordinatorEntity, EDFEnergyGasSensor, RestoreSensor):
     """Sensor for displaying the current gas rate."""
 
+    # The full rate lists are large (over 16KB), so keep them out of the recorder
+    _unrecorded_attributes = frozenset({"all_rates", "applicable_rates"})
+
     def __init__(self, hass: HomeAssistant, coordinator, meter, point):
         CoordinatorEntity.__init__(self, coordinator)
         EDFEnergyGasSensor.__init__(self, hass, meter, point)

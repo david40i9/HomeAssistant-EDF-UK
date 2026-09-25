@@ -1264,6 +1264,8 @@ class EDFEnergyApiClient:
 
   async def async_get_electricity_rates(self, product_code: str, tariff_code: str, period_from: datetime, period_to: datetime):
     """Get electricity rates, handling single-rate and day/night tariffs."""
+    # REST endpoints use the GraphQL token too, so make sure it is current (Octopus uses an API key here instead)
+    await self.async_refresh_token()
     if tariff_code in self._unavailable_product_tariffs:
       return self.__agreement_rates(tariff_code, period_from, period_to)
 
@@ -1313,6 +1315,8 @@ class EDFEnergyApiClient:
 
   async def async_get_electricity_standing_charge(self, product_code: str, tariff_code: str, period_from: datetime, period_to: datetime):
     """Get the electricity standing charge"""
+    # REST endpoints use the GraphQL token too, so make sure it is current (Octopus uses an API key here instead)
+    await self.async_refresh_token()
     if tariff_code in self._unavailable_product_tariffs:
       return self.__agreement_standing_charge(tariff_code)
 
@@ -1340,6 +1344,8 @@ class EDFEnergyApiClient:
 
   async def async_get_electricity_consumption(self, mpan: str, serial_number: str, period_from: datetime = None, period_to: datetime = None, page_size: int = None):
     """Get the electricity consumption"""
+    # REST endpoints use the GraphQL token too, so make sure it is current (Octopus uses an API key here instead)
+    await self.async_refresh_token()
     try:
       client = self._create_client_session()
 
@@ -1375,6 +1381,8 @@ class EDFEnergyApiClient:
 
   async def async_get_gas_rates(self, product_code: str, tariff_code: str, period_from: datetime, period_to: datetime):
     """Get the gas rates"""
+    # REST endpoints use the GraphQL token too, so make sure it is current (Octopus uses an API key here instead)
+    await self.async_refresh_token()
     if tariff_code in self._unavailable_product_tariffs:
       return self.__agreement_rates(tariff_code, period_from, period_to)
 
@@ -1401,6 +1409,8 @@ class EDFEnergyApiClient:
 
   async def async_get_gas_standing_charge(self, product_code: str, tariff_code: str, period_from: datetime, period_to: datetime):
     """Get the gas standing charge"""
+    # REST endpoints use the GraphQL token too, so make sure it is current (Octopus uses an API key here instead)
+    await self.async_refresh_token()
     if tariff_code in self._unavailable_product_tariffs:
       return self.__agreement_standing_charge(tariff_code)
 
@@ -1428,6 +1438,8 @@ class EDFEnergyApiClient:
 
   async def async_get_gas_consumption(self, mprn: str, serial_number: str, period_from: datetime = None, period_to: datetime = None, page_size: int = None):
     """Get the gas consumption"""
+    # REST endpoints use the GraphQL token too, so make sure it is current (Octopus uses an API key here instead)
+    await self.async_refresh_token()
     try:
       client = self._create_client_session()
 

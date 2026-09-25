@@ -1,6 +1,6 @@
 # Fork changes
 
-This fork of [Bobby5291/HomeAssistant-EDF-UK](https://github.com/Bobby5291/HomeAssistant-EDF-UK) is based on upstream `main` (the `v1.9.9b` beta plus the NOTICE file) with extra fixes on top. Fork version: **2.0.1** (shown in Home Assistant under the integration's details).
+This fork of [Bobby5291/HomeAssistant-EDF-UK](https://github.com/Bobby5291/HomeAssistant-EDF-UK) is based on upstream `main` (the `v1.9.9b` beta plus the NOTICE file) with extra fixes on top. Fork version: **2.0.2** (shown in Home Assistant under the integration's details).
 
 ## 2.0.0: new internal name `edf_energy_uk`
 
@@ -23,6 +23,7 @@ These address intermittent `401 Cannot authenticate with provided Kraken token` 
 - **Token lifetime read from the token.** Expiry now comes from the JWT `exp` claim instead of assuming one hour (falls back to one hour if it can't be decoded).
 - **Recover after a 401.** A rejected token and refresh token are cleared, so the next update re-authenticates cleanly instead of reusing a token the server has rejected.
 - **Cloudfront 403s** ("The request could not be satisfied") are treated as server errors rather than authentication failures.
+- **REST calls never refreshed the token (the main cause of the 401s).** Octopus Energy authenticates its REST endpoints with an API key; the EDF port switched them to the GraphQL login token but didn't refresh it first. Rates, standing charges and consumption therefore used whatever token was cached, and once it expired they got `401 Cannot authenticate with provided Kraken token` until a GraphQL call happened to refresh it. Every REST call now refreshes the token first, like the GraphQL calls do.
 - **Back off after server errors when logging in.** If fetching a token fails with a server error, retries wait 1, 2, 4, 8, 16, then 30 minutes, resetting after a success. Without this, every request retried a full email/password login, which keeps Kraken's rate limit tripped.
 
 Octopus's "API key invalid" lockout was deliberately not ported: with email/password login, a single failed login would stop the integration until Home Assistant restarts.
@@ -79,6 +80,10 @@ Found by reading the issues and code of [stevekirtley's EDF integration](https:/
 ### Documentation
 
 - **[docs/ENTITIES.md](docs/ENTITIES.md)** lists every entity, attribute, event, service and repair, generated from the code, plus Energy dashboard setup.
+
+### Recorder
+
+- **Current Rate attributes too large.** The full `all_rates`/`applicable_rates` lists pushed the Current Rate sensors' attributes over Home Assistant's 16KB limit, so the recorder dropped them with a warning. Those two lists are now excluded from the recorder; they're still available on the live entity.
 
 ### Packaging
 
