@@ -4,6 +4,7 @@ import logging
 
 from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.components.sensor import RestoreSensor, SensorDeviceClass, SensorStateClass
 
@@ -174,3 +175,51 @@ class EDFEnergyRewards(EDFEnergyBillingSensor):
                 for r in rewards
             ],
         })
+
+
+class EDFEnergyTextBillingSensor(EDFEnergyBillingSensor):
+    """Base for non-money sensors fed by the account billing data."""
+
+    @property
+    def device_class(self):
+        return None
+
+    @property
+    def state_class(self):
+        return None
+
+    @property
+    def native_unit_of_measurement(self):
+        return None
+
+
+class EDFEnergySmartMeterDataFrequency(EDFEnergyTextBillingSensor):
+    """How often EDF may collect smart meter readings (HALF_HOURLY, DAILY or MONTHLY).
+
+    Half-hourly consumption, costs and Energy dashboard statistics need HALF_HOURLY. It can be changed
+    in the EDF account's smart meter data settings.
+    """
+
+    _key = "smart_meter_data_frequency"
+    _label = "Smart Meter Data Frequency"
+    _icon = "mdi:meter-electric-outline"
+
+    @property
+    def entity_category(self):
+        return EntityCategory.DIAGNOSTIC
+
+    def _update(self, billing: dict):
+        self._state = billing.get("smart_meter_reading_frequency")
+
+
+class EDFEnergyCampaigns(EDFEnergyTextBillingSensor):
+    """Number of EDF campaigns (schemes and account processes) the account is enrolled in, each listed."""
+
+    _key = "campaigns"
+    _label = "Campaigns"
+    _icon = "mdi:bullhorn-outline"
+
+    def _update(self, billing: dict):
+        campaigns = billing.get("campaigns") or []
+        self._state = len(campaigns)
+        self._attributes.update({"campaigns": campaigns})

@@ -27,6 +27,7 @@ One set per EDF account.
 | EDF Last Statement ({account}) | sensor | GBP | Charges on your most recent statement (bill) | `from_date`, `to_date`, `issued_date`, `payment_due_date`, `opening_balance`, `closing_balance`, `credits`, `is_final` |
 | EDF Suggested Direct Debit ({account}) | sensor | GBP | Direct debit EDF's payment review suggests (unknown if EDF doesn't give one) | `minimum_amount` |
 | EDF Rewards ({account}) | sensor | GBP | Total rewards on the account, such as refer-a-friend payments (0 if none) | `rewards` (date, scheme, amount, status), `referrals_created` |
+| EDF Campaigns ({account}) | sensor | | Number of EDF campaigns the account is enrolled in | `campaigns` (name, slug, start and expiry dates) |
 | EDF Account Is Overdue ({account}) | binary sensor | | On when the account has an overdue balance | `overdue_balance_gbp` |
 | EDF Direct Debit Needs Review ({account}) | binary sensor | | On when EDF suggests reviewing your direct debit | `recommended_adjustment_gbp` |
 | EDF Can Renew Tariff ({account}) | binary sensor | | On when you can renew or switch tariff | |
@@ -142,10 +143,11 @@ The same data is also fired on the Home Assistant event bus as `edf_energy_uk_el
 
 ## Diagnostic entities
 
-All disabled by default. Enable them if you're troubleshooting.
+All disabled by default except *Smart Meter Data Frequency*. Enable them if you're troubleshooting.
 
 | Entity | What it shows |
 |---|---|
+| EDF Smart Meter Data Frequency ({account}) | How often EDF may collect your smart meter readings. Half-hourly consumption and costs need `HALF_HOURLY`; `DAILY` or `MONTHLY` explains blank consumption sensors, and can be changed in your EDF account |
 | EDF Account Last Retrieved ({account}) | When account data was last fetched |
 | EDF Auth Token Expiry ({account}) | When the current EDF login token expires |
 | EDF Electricity / Gas Rates Last Retrieved | When rates were last fetched |

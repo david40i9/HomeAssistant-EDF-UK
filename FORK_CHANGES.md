@@ -104,6 +104,12 @@ EDF's REST consumption endpoint returns nothing for export meters, so every expo
 
 The previous consumption coordinator (from Bobby5291's version) asked for yesterday in UTC and accepted it with as few as three readings. During BST that shifted the day to 1am–1am, so charging between midnight and 1am landed on the wrong day (this account showed 15.858 kWh for a day that was really 12.814), and a partly published day showed a partial total. It now fetches the last few days and uses the most recent local day with every half hour present, as @stevekirtley's integration and Octopus Energy do. The expected count follows the day's length, so clock-change days work, and rates are fetched for exactly that day.
 
+### Applicable rates, data frequency and campaigns
+
+- **Applicable rates.** Kraken's `applicableRates(accountNumber, mpxn, startAt, endAt)` returns the dated unit rates applied to the account, for import, export and gas. It's now the first fallback when the product endpoints won't serve a tariff, ahead of the agreement prices. The agreement only carries today's bands and no day/night times; applicable rates cover any period. EDF returns these rates **excluding VAT**: import and gas get 5% added (checked: 6.66p → 6.993p and 27.258p → 28.62p on Go Electric, and 6.845p → 7.18725p on gas, matching EDF's prices), while export payments carry no VAT (15p stays 15p).
+- **Smart Meter Data Frequency** from `smartMeterDataPreferences`. Accounts without half-hourly consent get no half-hourly consumption, which otherwise looks like a bug.
+- **Campaigns** from `account.campaigns`.
+
 ### Thanks
 
 - **@Bobby5291** for the original EDF UK integration and the credentials fix in PR #32.
@@ -126,5 +132,5 @@ The previous consumption coordinator (from Bobby5291's version) asked for yester
 ## Not yet resolved
 
 - Annual consumption (EAC/AQ) returns `KT-CT-1111` ("not authorised") for some accounts, including one on EDF since 2023, so it may not be available to customer logins at all. The sensors are kept for accounts where it works.
-- Day/night (Economy 7) tariffs can't be priced from the account agreement when EDF hides the product, as the agreement doesn't include the time bands.
+- Day/night (Economy 7) tariffs that EDF hides are now priced from applicable rates, which include the time bands. This hasn't been tested on an Economy 7 account.
 - Rate and standing charge sensors still use `monetary` + `total`. Octopus Energy v19 moved them to `measurement` for min/max/average statistics; that change would make Home Assistant ask to delete their existing statistics, so it hasn't been made.

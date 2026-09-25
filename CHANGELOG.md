@@ -2,6 +2,15 @@
 
 Version history of this fork. Versions are shown in Home Assistant under the integration's details. Credits in brackets name the people whose fixes, reports or findings each change is based on. For the reasoning behind each fix, see [FORK_CHANGES.md](FORK_CHANGES.md); for what every entity does, see [docs/ENTITIES.md](docs/ENTITIES.md).
 
+## 2.3.0 (2026-09-25)
+
+### Added
+- **Smart Meter Data Frequency** (diagnostic): how often EDF may collect your smart meter readings. Half-hourly consumption, costs and Energy dashboard statistics need `HALF_HOURLY`; if it says `DAILY` or `MONTHLY`, that's why they stay blank.
+- **Campaigns**: the EDF schemes and account processes your account is enrolled in (for example Sunday Saver, or a meter settlement change in progress).
+
+### Improved
+- Tariffs EDF won't price through its product endpoints (export, temporarily hidden and day/night tariffs) are now priced from the account's **applicable rates**. These are the prices EDF applies to your account for any period, so past days are priced correctly too. The agreement prices remain as a last resort.
+
 ## 2.2.2 (2026-09-25)
 
 ### Fixed

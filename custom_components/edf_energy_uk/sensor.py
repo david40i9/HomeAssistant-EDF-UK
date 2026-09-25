@@ -78,6 +78,8 @@ from .account.billing import (
     EDFEnergyLastStatement,
     EDFEnergySuggestedDirectDebit,
     EDFEnergyRewards,
+    EDFEnergySmartMeterDataFrequency,
+    EDFEnergyCampaigns,
 )
 from .account.diagnostics import EDFEnergyAccountLastRetrieved, EDFEnergyAuthTokenExpiry
 from .electricity.meter_reading import EDFEnergyElectricityMeterReading
@@ -148,6 +150,8 @@ async def async_setup_entry(hass: HomeAssistant, entry, async_add_entities):
         entities.append(EDFEnergyLastStatement(hass, transactions_coordinator, account_id))
         entities.append(EDFEnergySuggestedDirectDebit(hass, transactions_coordinator, account_id))
         entities.append(EDFEnergyRewards(hass, transactions_coordinator, account_id))
+        entities.append(EDFEnergySmartMeterDataFrequency(hass, transactions_coordinator, account_id))
+        entities.append(EDFEnergyCampaigns(hass, transactions_coordinator, account_id))
 
     # -------------------------------------------------------------------------
     # Electricity meter sensors — one set per active meter
