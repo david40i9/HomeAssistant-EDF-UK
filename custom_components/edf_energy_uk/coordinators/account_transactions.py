@@ -21,13 +21,16 @@ _LOGGER = logging.getLogger(__name__)
 
 class AccountTransactionsCoordinatorResult(BaseCoordinatorResult):
     transactions: list | None
+    billing: dict | None
 
     def __init__(self, last_evaluated: datetime, request_attempts: int,
                  transactions,
                  last_retrieved: datetime | None = None,
-                 last_error: Exception | None = None):
+                 last_error: Exception | None = None,
+                 billing: dict | None = None):
         super().__init__(last_evaluated, request_attempts, REFRESH_RATE_IN_MINUTES_ACCOUNT, last_retrieved, last_error)
         self.transactions = transactions
+        self.billing = billing
 
 
 async def async_refresh_account_transactions_data(
@@ -44,7 +47,14 @@ async def async_refresh_account_transactions_data(
     try:
         data = await client.async_get_account_transactions(account_id)
         if data is not None:
-            return AccountTransactionsCoordinatorResult(current, 1, data)
+            # Billing extras (payment forecast, last statement, rewards) are optional: keep the previous
+            # values if they fail, rather than losing the transactions as well
+            billing = existing.billing if existing is not None else None
+            try:
+                billing = await client.async_get_account_billing(account_id) or billing
+            except ApiException:
+                _LOGGER.debug(f'Failed to retrieve account billing for {account_id}')
+            return AccountTransactionsCoordinatorResult(current, 1, data, billing=billing)
     except Exception as e:
         if not isinstance(e, ApiException):
             raise
@@ -58,6 +68,7 @@ async def async_refresh_account_transactions_data(
             existing.transactions,
             existing.last_retrieved,
             last_error=raised_exception,
+            billing=existing.billing,
         )
 
     return AccountTransactionsCoordinatorResult(

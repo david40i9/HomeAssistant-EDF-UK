@@ -225,6 +225,36 @@ transactions_query = '''query AccountTransactions($accountNumber: String!) {
   }
 }'''
 
+billing_query = '''query AccountBilling($accountNumber: String!) {
+  account(accountNumber: $accountNumber) {
+    paginatedPaymentForecast(first: 3) {
+      edges { node { date amount method } }
+    }
+    bills(first: 1, includeOpenStatements: false) {
+      edges {
+        node {
+          __typename
+          billType
+          fromDate
+          toDate
+          issuedDate
+          ... on StatementType {
+            openingBalance
+            closingBalance
+            paymentDueDate
+            isFinal
+            totalCharges { grossTotal }
+            totalCredits { grossTotal }
+          }
+        }
+      }
+    }
+    rewards { paymentDate schemeType rewardAmount paymentStatus }
+    referralsCreated
+    paymentAdequacy { suggestedDirectDebitAmount minimumDirectDebitAmount }
+  }
+}'''
+
 electricity_meter_readings_query = '''query ElectricityMeterReadings($accountNumber: String!, $meterId: String!, $first: Int) {
   electricityMeterReadings(accountNumber: $accountNumber, meterId: $meterId, first: $first) {
     edges {
@@ -794,6 +824,72 @@ class EDFEnergyApiClient:
       _LOGGER.warning(f'Failed to connect. Timeout of {self._timeout} exceeded.')
       raise TimeoutException()
     return None
+
+  async def async_get_account_billing(self, account_id: str):
+    """Get the payment forecast, latest statement, rewards and direct debit review. Personal fields
+    (addresses, names, referral codes) are deliberately not requested."""
+    await self.async_refresh_token()
+    try:
+      client = self._create_client_session()
+      url = f'{self._base_url}/v1/graphql/'
+      payload = {
+        "query": billing_query,
+        "variables": {"accountNumber": account_id},
+      }
+      headers = {"Authorization": self._graphql_token, "context": "account-billing"}
+      async with client.post(url, json=payload, headers=headers) as response:
+        body = await self.__async_read_response__(response, url, ignore_errors=True)
+        if body is None or body.get("data") is None or body["data"].get("account") is None:
+          return None
+        account = body["data"]["account"]
+
+        def edges(connection):
+          return [edge.get("node") or {} for edge in ((connection or {}).get("edges") or [])]
+
+        forecast = [
+          {"date": node.get("date"), "amount": node.get("amount"), "method": node.get("method")}
+          for node in edges(account.get("paginatedPaymentForecast"))
+        ]
+
+        bills = edges(account.get("bills"))
+        last_bill = None
+        if bills:
+          bill = bills[0]
+          last_bill = {
+            "bill_type": bill.get("billType"),
+            "from_date": bill.get("fromDate"),
+            "to_date": bill.get("toDate"),
+            "issued_date": bill.get("issuedDate"),
+            "opening_balance": bill.get("openingBalance"),
+            "closing_balance": bill.get("closingBalance"),
+            "payment_due_date": bill.get("paymentDueDate"),
+            "is_final": bill.get("isFinal"),
+            "total_charges": (bill.get("totalCharges") or {}).get("grossTotal"),
+            "total_credits": (bill.get("totalCredits") or {}).get("grossTotal"),
+          }
+
+        rewards = [
+          {
+            "payment_date": reward.get("paymentDate"),
+            "scheme_type": reward.get("schemeType"),
+            "amount": reward.get("rewardAmount"),
+            "payment_status": reward.get("paymentStatus"),
+          }
+          for reward in (account.get("rewards") or [])
+        ]
+
+        adequacy = account.get("paymentAdequacy") or {}
+        return {
+          "payment_forecast": forecast,
+          "last_bill": last_bill,
+          "rewards": rewards,
+          "referrals_created": account.get("referralsCreated"),
+          "suggested_direct_debit": adequacy.get("suggestedDirectDebitAmount"),
+          "minimum_direct_debit": adequacy.get("minimumDirectDebitAmount"),
+        }
+    except TimeoutError:
+      _LOGGER.warning(f'Failed to connect. Timeout of {self._timeout} exceeded.')
+      raise TimeoutException()
 
   async def async_get_electricity_meter_readings(self, account_id: str, mpan: str, serial_number: str):
     """Get the latest electricity meter register reading via GraphQL."""

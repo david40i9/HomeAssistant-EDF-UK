@@ -92,6 +92,10 @@ Found by reading the issues and code of [stevekirtley's EDF integration](https:/
 - **Kept** the annual consumption sensors, flat-tariff next/previous rates and export consumption, which work for some accounts or tariffs even when they don't for this one.
 - **Fixed Electricity Tariff Type**, which was always Unknown: the tariff-code pattern (from Octopus) didn't allow the underscores in EDF product codes. It now uses the tariff type EDF reports on the agreement (Go Electric → EV, export → Export, day/night → Economy 7), with the corrected pattern as a fallback.
 
+### Payment forecast, statements, rewards and direct debit review
+
+Four account sensors from fields found in EDF's GraphQL schema: `paginatedPaymentForecast` (Next Payment), `bills` (Last Statement), `paymentAdequacy` (Suggested Direct Debit) and `rewards`/`referralsCreated` (Rewards). They're fetched in one extra query alongside the transactions; if it fails, the previous values are kept and Last Payment is unaffected. EDF reports statement charges as negative amounts, so Last Statement shows them as a positive number. Fields that hold personal details (statement address, referred customers' names, referral codes) are not requested.
+
 ### Thanks
 
 - **@Bobby5291** for the original EDF UK integration and the credentials fix in PR #32.

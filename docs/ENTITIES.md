@@ -23,9 +23,15 @@ One set per EDF account.
 | EDF Recommended DD Adjustment ({account}) | sensor | GBP | Direct debit change EDF recommends (unknown if none) | `should_review_payments` |
 | EDF Direct Debit Amount ({account}) | sensor | GBP | Your current direct debit | `payment_day`, `status` |
 | EDF Last Payment ({account}) | sensor | GBP | Most recent payment received | `posted_date`, `title` |
+| EDF Next Payment ({account}) | sensor | GBP | Next scheduled payment | `date`, `method`, `upcoming` (next three payments) |
+| EDF Last Statement ({account}) | sensor | GBP | Charges on your most recent statement (bill) | `from_date`, `to_date`, `issued_date`, `payment_due_date`, `opening_balance`, `closing_balance`, `credits`, `is_final` |
+| EDF Suggested Direct Debit ({account}) | sensor | GBP | Direct debit EDF's payment review suggests (unknown if EDF doesn't give one) | `minimum_amount` |
+| EDF Rewards ({account}) | sensor | GBP | Total rewards on the account, such as refer-a-friend payments (0 if none) | `rewards` (date, scheme, amount, status), `referrals_created` |
 | EDF Account Is Overdue ({account}) | binary sensor | | On when the account has an overdue balance | `overdue_balance_gbp` |
 | EDF Direct Debit Needs Review ({account}) | binary sensor | | On when EDF suggests reviewing your direct debit | `recommended_adjustment_gbp` |
 | EDF Can Renew Tariff ({account}) | binary sensor | | On when you can renew or switch tariff | |
+
+The payment, statement and reward sensors update hourly. Addresses, names and referral codes are deliberately not fetched.
 
 ## Tariffs and contracts
 

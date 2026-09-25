@@ -2,6 +2,16 @@
 
 Version history of this fork. Versions are shown in Home Assistant under the integration's details. Credits in brackets name the people whose fixes, reports or findings each change is based on. For the reasoning behind each fix, see [FORK_CHANGES.md](FORK_CHANGES.md); for what every entity does, see [docs/ENTITIES.md](docs/ENTITIES.md).
 
+## 2.2.0 (2026-09-25)
+
+### Added
+- **Next Payment**: amount and date of your next scheduled payment, with the next three listed.
+- **Last Statement**: charges on your most recent statement, with its period, due date and balances.
+- **Suggested Direct Debit**: the amount EDF's payment review suggests, and the minimum it would accept.
+- **Rewards**: total rewards (such as refer-a-friend), each listed, and the number of referrals.
+
+Found by exploring EDF's GraphQL API with the `run_graphql_query` service. No addresses, names or referral codes are fetched.
+
 ## 2.1.0 (2026-09-25)
 
 ### Removed
