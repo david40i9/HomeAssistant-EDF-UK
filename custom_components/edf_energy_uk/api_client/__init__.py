@@ -255,6 +255,22 @@ billing_query = '''query AccountBilling($accountNumber: String!) {
   }
 }'''
 
+export_measurements_query = '''query ExportMeasurements($accountNumber: String!, $mpan: String!, $startAt: DateTime, $endAt: DateTime, $after: String) {
+  account(accountNumber: $accountNumber) {
+    properties {
+      measurements(first: 100, after: $after, startAt: $startAt, endAt: $endAt, utilityFilters: [{electricityFilters: {readingDirection: GENERATION, readingFrequencyType: THIRTY_MIN_INTERVAL, marketSupplyPointId: $mpan}}]) {
+        pageInfo { hasNextPage endCursor }
+        edges {
+          node {
+            value
+            ... on IntervalMeasurementType { startAt endAt }
+          }
+        }
+      }
+    }
+  }
+}'''
+
 electricity_meter_readings_query = '''query ElectricityMeterReadings($accountNumber: String!, $meterId: String!, $first: Int) {
   electricityMeterReadings(accountNumber: $accountNumber, meterId: $meterId, first: $first) {
     edges {
@@ -456,6 +472,8 @@ class EDFEnergyApiClient:
     self._agreement_rates = {}
     # Tariffs the REST product endpoints refused, so we go straight to the agreement rates
     self._unavailable_product_tariffs = set()
+    # Export MPAN -> account number, for reading export consumption from GraphQL measurements
+    self._export_mpans = {}
     # Whether to use direct debit prices from the product endpoints. Updated from the account's
     # direct debit status when it loads; defaults to direct debit as most accounts pay that way.
     self._favour_direct_debit_rates = True
@@ -581,6 +599,10 @@ class EDFEnergyApiClient:
     Used when the REST product endpoints won't serve a tariff (EDF refuses export products, for example).
     Also picks direct debit or non direct debit product prices based on the account's direct debit.
     """
+    for point in (account_info or {}).get("electricity_meter_points") or []:
+      if point.get("is_export") and point.get("mpan") is not None and account_info.get("id") is not None:
+        self._export_mpans[str(point["mpan"])] = account_info["id"]
+
     if account_info is not None and "direct_debit_status" in account_info:
       self._favour_direct_debit_rates = (account_info.get("direct_debit_status") or "").upper() == "ACTIVE"
 
@@ -1371,6 +1393,12 @@ class EDFEnergyApiClient:
 
   async def async_get_electricity_consumption(self, mpan: str, serial_number: str, period_from: datetime = None, period_to: datetime = None, page_size: int = None):
     """Get the electricity consumption"""
+    # EDF doesn't serve export consumption on the REST endpoint, but does in GraphQL measurements
+    if str(mpan) in self._export_mpans and period_from is not None and period_to is not None:
+      results = await self.async_get_export_measurements(self._export_mpans[str(mpan)], mpan, period_from, period_to)
+      if results:
+        return results
+
     # REST endpoints use the GraphQL token too, so make sure it is current (Octopus uses an API key here instead)
     await self.async_refresh_token()
     try:
@@ -1405,6 +1433,58 @@ class EDFEnergyApiClient:
       raise TimeoutException()
 
     return None
+
+  async def async_get_export_measurements(self, account_id: str, mpan: str, period_from: datetime, period_to: datetime):
+    """Get half-hourly export consumption from GraphQL measurements, in the same shape as the REST consumption."""
+    await self.async_refresh_token()
+    results = []
+    try:
+      client = self._create_client_session()
+      url = f'{self._base_url}/v1/graphql/'
+      headers = {"Authorization": self._graphql_token, "context": "export-measurements"}
+      after = None
+      # A week of half hours is 336 readings; stop well short of runaway paging
+      for _ in range(50):
+        payload = {
+          "query": export_measurements_query,
+          "variables": {
+            "accountNumber": account_id,
+            "mpan": str(mpan),
+            "startAt": period_from.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "endAt": period_to.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+          },
+        }
+        if after is not None:
+          payload["variables"]["after"] = after
+        async with client.post(url, json=payload, headers=headers) as response:
+          body = await self.__async_read_response__(response, url, ignore_errors=True)
+        if body is None or body.get("data") is None or body["data"].get("account") is None:
+          break
+
+        next_after = None
+        for prop in body["data"]["account"].get("properties") or []:
+          connection = (prop or {}).get("measurements") or {}
+          for edge in connection.get("edges") or []:
+            node = edge.get("node") or {}
+            if node.get("value") is None or node.get("startAt") is None or node.get("endAt") is None:
+              continue
+            start = as_utc(parse_datetime(node["startAt"]))
+            end = as_utc(parse_datetime(node["endAt"]))
+            if start >= period_from and end <= period_to:
+              results.append({"consumption": float(node["value"]), "start": start, "end": end})
+          page_info = connection.get("pageInfo") or {}
+          if page_info.get("hasNextPage"):
+            next_after = page_info.get("endCursor")
+
+        if next_after is None:
+          break
+        after = next_after
+    except TimeoutError:
+      _LOGGER.warning(f'Failed to connect. Timeout of {self._timeout} exceeded.')
+      raise TimeoutException()
+
+    results.sort(key=self.__get_interval_end)
+    return results
 
   async def async_get_gas_rates(self, product_code: str, tariff_code: str, period_from: datetime, period_to: datetime):
     """Get the gas rates"""

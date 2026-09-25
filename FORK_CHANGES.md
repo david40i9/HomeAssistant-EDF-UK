@@ -89,12 +89,16 @@ Found by reading the issues and code of [stevekirtley's EDF integration](https:/
 
 - **Removed live consumption.** The *Supports live consumption* option and its sensors (Current Demand, Current Consumption, Current Total Consumption, Current Accumulative Consumption/Cost, Current Total Export) relied on `smartMeterTelemetry`, which EDF doesn't provide for any account (`KT-GB-4039`, confirmed with EDF by stevekirtley and reported on Bobby5291's #24). Existing config entries keep the option in their stored data, which is simply ignored.
 - **Removed Daily Cost sensors** (electricity, export, gas). They add up *today's* consumption, and EDF only publishes consumption a day or more later for every account, so they could never have a value. Weekly and Monthly Cost are unchanged.
-- **Kept** the annual consumption sensors, flat-tariff next/previous rates and export consumption, which work for some accounts or tariffs even when they don't for this one.
+- **Kept** the annual consumption sensors, flat-tariff next/previous rates, which work for some accounts or tariffs even when they don't for this one.
 - **Fixed Electricity Tariff Type**, which was always Unknown: the tariff-code pattern (from Octopus) didn't allow the underscores in EDF product codes. It now uses the tariff type EDF reports on the agreement (Go Electric → EV, export → Export, day/night → Economy 7), with the corrected pattern as a fallback.
 
 ### Payment forecast, statements, rewards and direct debit review
 
 Four account sensors from fields found in EDF's GraphQL schema: `paginatedPaymentForecast` (Next Payment), `bills` (Last Statement), `paymentAdequacy` (Suggested Direct Debit) and `rewards`/`referralsCreated` (Rewards). They're fetched in one extra query alongside the transactions; if it fails, the previous values are kept and Last Payment is unaffected. EDF reports statement charges as negative amounts, so Last Statement shows them as a positive number. Fields that hold personal details (statement address, referred customers' names, referral codes) are not requested.
+
+### Export consumption from GraphQL measurements
+
+EDF's REST consumption endpoint returns nothing for export meters, so every export consumption sensor was unknown. The account's `properties.measurements` connection has the same half-hourly smart meter data, and filtering it with `readingDirection: GENERATION` and the export MPAN returns export. Import figures from `measurements` match the REST consumption exactly, which confirmed the filter works. Export meters now read from `measurements` and fall back to REST if it returns nothing.
 
 ### Thanks
 

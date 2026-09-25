@@ -12,6 +12,9 @@ Version history of this fork. Versions are shown in Home Assistant under the int
 
 Found by exploring EDF's GraphQL API with the `run_graphql_query` service. No addresses, names or referral codes are fetched.
 
+### Fixed
+- **Export consumption** (Export Previous Accumulative Consumption and Cost, the export cost trackers and the Energy dashboard's return to grid) was always unknown. EDF doesn't serve export on its consumption endpoint, but does in GraphQL `measurements`, which is now used for export meters.
+
 ## 2.1.0 (2026-09-25)
 
 ### Removed
