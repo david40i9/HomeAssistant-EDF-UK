@@ -1,0 +1,692 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Company Car Dashboard</title>
+<meta name="description" content="Net monthly cost, BIK and EV running costs for every car on the company list.">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{
+  color-scheme:light;
+  --page:#f9f9f7;--surface:#fcfcfb;--surface-2:#f2f1ed;--ink:#0b0b0b;--ink-2:#52514e;--muted:#6f6d68;
+  --grid:#e1e0d9;--axis:#c3c2b7;--border:rgba(11,11,11,.10);--accent:#2a78d6;--accent-ink:#fff;
+  --good:#006300;--good-bg:rgba(12,163,12,.10);--warn-bg:rgba(250,178,25,.18);--bad:#b42323;
+  --f-electric:#2a78d6;--f-petrol:#eb6834;--f-hybrid:#1baf7a;--f-diesel:#4a3aa7;--f-other:#898781;
+  --star:#e2a100;--shadow:0 1px 2px rgba(0,0,0,.04),0 2px 8px rgba(0,0,0,.04);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --page:#0d0d0d;--surface:#1a1a19;--surface-2:#232321;--ink:#fff;--ink-2:#c3c2b7;--muted:#9a988f;
+    --grid:#2c2c2a;--axis:#383835;--border:rgba(255,255,255,.10);--accent:#3987e5;--accent-ink:#fff;
+    --good:#2fc12f;--good-bg:rgba(12,163,12,.16);--warn-bg:rgba(250,178,25,.14);--bad:#ff7b7b;
+    --f-electric:#3987e5;--f-petrol:#d95926;--f-hybrid:#199e70;--f-diesel:#a39ec0;--f-other:#898781;
+    --star:#f5b82e;--shadow:none;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --page:#0d0d0d;--surface:#1a1a19;--surface-2:#232321;--ink:#fff;--ink-2:#c3c2b7;--muted:#9a988f;
+  --grid:#2c2c2a;--axis:#383835;--border:rgba(255,255,255,.10);--accent:#3987e5;--accent-ink:#fff;
+  --good:#2fc12f;--good-bg:rgba(12,163,12,.16);--warn-bg:rgba(250,178,25,.14);--bad:#ff7b7b;
+  --f-electric:#3987e5;--f-petrol:#d95926;--f-hybrid:#199e70;--f-diesel:#a39ec0;--f-other:#898781;
+  --star:#f5b82e;--shadow:none;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--page);color:var(--ink);font:14px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
+.wrap{max-width:1440px;margin:0 auto;padding:20px 16px 60px}
+h1{font-size:22px;margin:0;font-weight:700;letter-spacing:-.01em}
+h2{font-size:16px;margin:0 0 4px;font-weight:600}
+.sub{color:var(--ink-2);font-size:13px}
+.muted{color:var(--muted)}
+header.top{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:flex-end;justify-content:space-between;margin-bottom:16px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;box-shadow:var(--shadow);min-width:0}
+.grid{display:grid;gap:12px}
+.kpis{grid-template-columns:repeat(auto-fit,minmax(170px,1fr));margin-bottom:12px}
+.kpi .lbl{font-size:12px;color:var(--ink-2);font-weight:500}
+.kpi .val{font-size:24px;font-weight:600;margin-top:2px;letter-spacing:-.01em}
+.kpi .det{font-size:12px;color:var(--muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.neg{color:var(--good)}
+.note{background:var(--warn-bg);border-radius:8px;padding:8px 12px;font-size:12.5px;color:var(--ink-2);margin:8px 0}
+.note b{color:var(--ink)}
+/* controls */
+.controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px 14px;align-items:end}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--ink-2);font-weight:500;min-width:0}
+select,input[type=text],input[type=number],input[type=search]{font:inherit;color:var(--ink);background:var(--surface);border:1px solid var(--axis);border-radius:8px;padding:7px 9px;width:100%;min-width:0}
+select[multiple]{height:88px;padding:4px}
+input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.seg{display:inline-flex;border:1px solid var(--axis);border-radius:8px;overflow:hidden;flex-wrap:wrap}
+.seg button{font:inherit;font-size:13px;border:0;background:transparent;color:var(--ink-2);padding:7px 11px;cursor:pointer}
+.seg button+button{border-left:1px solid var(--axis)}
+.seg button[aria-pressed=true]{background:var(--accent);color:var(--accent-ink)}
+.tog{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink);cursor:pointer;user-select:none;padding:6px 0}
+.tog input{width:16px;height:16px;accent-color:var(--accent)}
+.range2{position:relative;height:28px}
+.range2 input{position:absolute;left:0;right:0;top:6px;width:100%;pointer-events:none;-webkit-appearance:none;appearance:none;background:none;margin:0}
+.range2 input::-webkit-slider-thumb{pointer-events:auto;-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:var(--accent);border:2px solid var(--surface);cursor:pointer;margin-top:-7px}
+.range2 input::-moz-range-thumb{pointer-events:auto;width:16px;height:16px;border-radius:50%;background:var(--accent);border:2px solid var(--surface);cursor:pointer}
+.range2 input::-webkit-slider-runnable-track{height:4px;background:transparent}
+.range2 .track{position:absolute;left:0;right:0;top:13px;height:4px;border-radius:2px;background:var(--grid)}
+.range2 .fill{position:absolute;top:13px;height:4px;border-radius:2px;background:var(--accent)}
+button.btn{font:inherit;font-size:13px;border:1px solid var(--axis);background:var(--surface);color:var(--ink);border-radius:8px;padding:7px 12px;cursor:pointer}
+button.btn:hover{background:var(--surface-2)}
+.row{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center}
+.sticky-bar{position:sticky;top:0;z-index:20;background:var(--page);padding:8px 0;margin:0 0 4px}
+/* charts */
+.charts{grid-template-columns:repeat(auto-fit,minmax(min(100%,520px),1fr));margin:12px 0}
+.chartbox{position:relative;height:320px}
+.legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;color:var(--ink-2);margin:6px 0 2px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:-1px}
+/* tables */
+.tbl-wrap{overflow:auto;max-height:70vh;border:1px solid var(--border);border-radius:10px;margin-top:10px}
+table{border-collapse:separate;border-spacing:0;width:100%;font-size:13px;font-variant-numeric:tabular-nums}
+th,td{padding:7px 10px;text-align:left;white-space:nowrap;border-bottom:1px solid var(--grid)}
+th{position:sticky;top:0;background:var(--surface-2);font-weight:600;font-size:12px;color:var(--ink-2);cursor:pointer;user-select:none;z-index:2}
+th.num,td.num{text-align:right}
+th[aria-sort=ascending]::after{content:" ▲";font-size:9px}
+th[aria-sort=descending]::after{content:" ▼";font-size:9px}
+td.type{white-space:normal;min-width:340px;max-width:460px}
+@media (max-width:640px){td.type{min-width:240px}}
+tbody tr:hover{background:var(--surface-2)}
+tbody tr.pinned{background:color-mix(in srgb,var(--star) 9%,transparent)}
+.star{background:none;border:0;cursor:pointer;font-size:17px;line-height:1;color:var(--axis);padding:2px 4px}
+.star[aria-pressed=true]{color:var(--star)}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}
+.chip{display:inline-block;font-size:11px;font-weight:500;border-radius:999px;padding:1px 8px;margin:1px 3px 1px 0;border:1px solid var(--border);background:var(--surface-2);color:var(--ink-2);cursor:default}
+.chip.pays{background:var(--good-bg);color:var(--good);border-color:transparent}
+.chip.kw22{background:var(--warn-bg);color:var(--ink)}
+.chip.nonev{color:var(--ink-2)}
+.est{font-size:10px;color:var(--muted);vertical-align:super;margin-left:1px}
+/* shortlist */
+.sl{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(220px,1fr);gap:12px;overflow-x:auto;padding-bottom:6px;margin-top:10px}
+.slc{border:1px solid var(--border);border-radius:10px;padding:12px;background:var(--surface);position:relative}
+.slc h3{font-size:14px;margin:0 22px 2px 0}
+.slc .t{font-size:11.5px;color:var(--muted);margin-bottom:8px;min-height:30px}
+.slc dl{display:grid;grid-template-columns:1fr auto;gap:3px 10px;margin:0;font-size:13px;font-variant-numeric:tabular-nums}
+.slc dt{color:var(--ink-2)}
+.slc dd{margin:0;text-align:right;font-weight:500}
+.slc .x{position:absolute;top:8px;right:8px}
+details.assump summary{cursor:pointer;font-weight:600;font-size:16px;list-style:none}
+details.assump summary::-webkit-details-marker{display:none}
+details.assump summary::before{content:"▸ ";color:var(--muted)}
+details.assump[open] summary::before{content:"▾ "}
+.agrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px 16px;margin-top:12px}
+.bandtbl{font-size:12px;margin-top:10px}
+.bandtbl td,.bandtbl th{padding:3px 8px;position:static}
+footer{font-size:12px;color:var(--ink-2);margin-top:16px}
+footer li{margin:3px 0}
+.warnlist{font-size:12.5px;color:var(--ink-2);max-height:160px;overflow:auto;margin:6px 0 0;padding-left:18px}
+section{margin-top:12px}
+.hd{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:8px}
+@media (max-width:640px){
+  .kpi .val{font-size:20px}
+  .chartbox{height:280px}
+  h1{font-size:19px}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="top">
+  <div>
+    <h1>Company Car Dashboard</h1>
+    <div class="sub" id="srcLine"></div>
+  </div>
+  <div class="row">
+    <div>
+      <div class="sub" style="margin-bottom:4px">Tax year</div>
+      <div class="seg" id="yearSeg" role="group" aria-label="Tax year"></div>
+    </div>
+    <div>
+      <div class="sub" style="margin-bottom:4px">Income tax rate</div>
+      <div class="seg" id="rateSeg" role="group" aria-label="Income tax rate"></div>
+    </div>
+  </div>
+</header>
+
+<div class="grid kpis" id="kpis"></div>
+<div class="note" id="negNote"></div>
+
+<section class="card">
+  <div class="hd"><h2>Filters</h2><div class="row"><span class="sub" id="countLine"></span><button class="btn" id="resetBtn" type="button">Reset filters</button></div></div>
+  <div class="controls" style="margin-top:10px">
+    <label class="f">Make<select id="fMake" multiple></select></label>
+    <label class="f">Model<select id="fModel" multiple></select></label>
+    <label class="f">Fuel<select id="fFuel" multiple></select></label>
+    <label class="f">Body style<select id="fBody" multiple></select></label>
+    <div class="f" style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--ink-2);font-weight:500">
+      <span>P11D <span id="pLbl"></span></span>
+      <div class="range2"><div class="track"></div><div class="fill" id="pFill"></div>
+        <input type="range" id="pMin" aria-label="Minimum P11D"><input type="range" id="pMax" aria-label="Maximum P11D"></div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:2px">
+      <label class="f">Search variant (Type)<input type="search" id="fText" placeholder="e.g. M SPORT, AWD, 77 KWH"></label>
+      <label class="tog"><input type="checkbox" id="fEV"> EVs only</label>
+      <label class="tog"><input type="checkbox" id="f22"> Hide 22kW charger options</label>
+    </div>
+  </div>
+  <div class="sub" style="margin-top:6px">Tip: Ctrl/⌘-click (or tap on mobile) to pick several. Nothing selected means all.</div>
+</section>
+
+<div class="grid charts">
+  <div class="card"><h2>Net £/month by make</h2><div class="sub">Each dot is one variant. Bar shows the median. Below zero means the car pays you.</div><div class="legend" id="lgFuel1"></div><div class="chartbox"><canvas id="cMake"></canvas></div></div>
+  <div class="card"><h2>P11D vs net £/month</h2><div class="sub">Coloured by fuel. Click a dot to pin it to the shortlist.</div><div class="legend" id="lgFuel2"></div><div class="chartbox"><canvas id="cScatter"></canvas></div></div>
+  <div class="card"><h2>Monthly BIK tax, 2026/27 to 2029/30</h2><div class="sub">Shortlisted cars, at the selected tax rate. EV rates rise from 4% to 9%.</div><div class="legend" id="lgTraj"></div><div class="chartbox"><canvas id="cTraj"></canvas></div></div>
+  <div class="card"><h2>EV real-world range vs net £/month</h2><div class="sub">Range = kWh × 0.92 × mi/kWh (estimated). EVs with no efficiency data aren't shown.</div><div class="legend" id="lgMake"></div><div class="chartbox"><canvas id="cRange"></canvas></div></div>
+</div>
+
+<section class="card" id="slCard">
+  <div class="hd"><h2>Shortlist</h2><div class="row"><span class="sub">Click ☆ on any row to pin</span><button class="btn" id="slClear" type="button">Clear</button></div></div>
+  <div class="sl" id="sl"></div>
+</section>
+
+<section class="card">
+  <div class="hd"><h2>Best per model</h2><span class="sub">The cheapest variant of each model (by net £/month) in the filtered set</span></div>
+  <div class="tbl-wrap" style="max-height:55vh"><table id="tBest"></table></div>
+</section>
+
+<section class="card">
+  <div class="hd"><h2>All cars</h2><div class="row"><span class="sub" id="allCount"></span><button class="btn" id="csvBtn" type="button">Export CSV (filtered)</button></div></div>
+  <div class="tbl-wrap"><table id="tAll"></table></div>
+</section>
+
+<section class="card" id="warnCard" hidden>
+  <h2>Data warnings</h2>
+  <div id="warnBody"></div>
+</section>
+
+<section class="card">
+<details class="assump" id="assump">
+  <summary>Assumptions</summary>
+  <div class="agrid">
+    <label class="f">Negative contribution treatment
+      <select id="aNeg">
+        <option value="a">(a) Cash to employee, untaxed</option>
+        <option value="b">(b) Cash via payroll, taxed + employee NI</option>
+        <option value="c">(c) Treated as zero</option>
+      </select></label>
+    <label class="f">Employee NI, basic rate (%)<input type="number" id="aNiB" step="0.5" min="0"></label>
+    <label class="f">Employee NI, higher/additional (%)<input type="number" id="aNiH" step="0.5" min="0"></label>
+    <label class="f">Electricity price (p/kWh)<input type="number" id="aPrice" step="0.01" min="0"></label>
+    <label class="f">Annual miles<input type="number" id="aMiles" step="500" min="0"></label>
+    <label class="f">Usable battery fraction<input type="number" id="aUsable" step="0.01" min="0" max="1"></label>
+    <label class="f">EV BIK % 2026/27<input type="number" id="aEv0" step="1" min="0"></label>
+    <label class="f">EV BIK % 2027/28<input type="number" id="aEv1" step="1" min="0"></label>
+    <label class="f">EV BIK % 2028/29<input type="number" id="aEv2" step="1" min="0"></label>
+    <label class="f">EV BIK % 2029/30<input type="number" id="aEv3" step="1" min="0"></label>
+    <label class="f">Non-EV uplift 27/28 (pp)<input type="number" id="aUp1" step="1"></label>
+    <label class="f">Non-EV uplift 28/29 (pp)<input type="number" id="aUp2" step="1"></label>
+    <label class="f">Non-EV uplift 29/30 (pp)<input type="number" id="aUp3" step="1"></label>
+    <label class="f">Non-EV cap 26/27 &amp; 27/28 (%)<input type="number" id="aCap0" step="1"></label>
+    <label class="f">Non-EV cap 28/29 (%)<input type="number" id="aCap2" step="1"></label>
+    <label class="f">Non-EV cap 29/30 (%)<input type="number" id="aCap3" step="1"></label>
+  </div>
+  <div class="hd" style="margin-top:14px"><h2 style="font-size:14px">2026/27 non-EV BIK bands (g/km → %)</h2><button class="btn" id="aReset" type="button">Reset all assumptions</button></div>
+  <div class="tbl-wrap" style="max-height:none;display:inline-block"><table class="bandtbl" id="bandTbl"></table></div>
+</details>
+</section>
+
+<footer>
+  <b>Assumptions and estimates</b>
+  <ul id="foot"></ul>
+</footer>
+</div>
+
+<script>
+const DATA = /*__DATA__*/null;
+(() => {
+"use strict";
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const YEARS = ["2026/27","2027/28","2028/29","2029/30"];
+const RATES = [0.20,0.40,0.45];
+const ROWS = DATA.rows;
+const BYID = new Map(ROWS.map(r => [r.id, r]));
+
+/* ---------- assumptions ---------- */
+const DEFAULT_BANDS = [[51,54,17],[55,59,18],[60,64,19],[65,69,20],[70,74,21],[75,79,21]];
+for (let lo = 80, p = 22; lo <= 155; lo += 5, p++) DEFAULT_BANDS.push([lo, lo === 155 ? 999 : lo + 4, Math.min(p, 37)]);
+const DEF = {year:0, rate:0.40, neg:"a", niB:8, niH:2, price:6.99, miles:10000, usable:0.92,
+  ev:[4,5,7,9], up:[0,0,1,2], cap:[37,37,38,39], bands:DEFAULT_BANDS.map(b => b.slice())};
+const LS_KEY = "carDash.v1";
+let S = structuredClone(DEF);
+let pins = new Set(DATA.pins);
+try {
+  const saved = JSON.parse(localStorage.getItem(LS_KEY) || "null");
+  if (saved && saved.src === DATA.source) {
+    Object.assign(S, saved.S || {});
+    if (Array.isArray(saved.pins)) pins = new Set(saved.pins.filter(id => BYID.has(id)));
+  }
+} catch (e) {}
+const persist = () => { try { localStorage.setItem(LS_KEY, JSON.stringify({src:DATA.source, S, pins:[...pins]})); } catch (e) {} };
+
+/* ---------- calculations (mirror build.py) ---------- */
+function bik2627(r) {
+  if (r.ev) return S.ev[0];
+  if (r.co2 == null) return null;
+  const c = r.co2;
+  for (const [lo, hi, p] of S.bands) if (c >= lo && c <= hi + 0.999) return Math.min(p, S.cap[0]);
+  return null;
+}
+function bikYear(r, y) {
+  if (r.ev) return S.ev[y];
+  const b = bik2627(r);
+  if (b == null) return null;
+  return Math.min(b + S.up[y], S.cap[y]);
+}
+function niRate(rate) { return (rate <= 0.20 ? S.niB : S.niH) / 100; }
+function contribAdj(c, rate) {
+  if (c == null) return null;
+  if (c >= 0) return c;
+  if (S.neg === "c") return 0;
+  if (S.neg === "b") return c * (1 - rate - niRate(rate));
+  return c;
+}
+function bikTax(r, y, rate) { const b = bikYear(r, y); return b == null || r.p11d == null ? null : r.p11d * b / 100 * rate / 12; }
+function net(r, y = S.year, rate = S.rate) {
+  const t = bikTax(r, y, rate), c = contribAdj(r.contrib, rate);
+  return t == null || c == null ? null : c + t;
+}
+const range = r => r.kwh && r.eff ? r.kwh * S.usable * r.eff : null;
+const ppm = r => r.eff ? S.price / r.eff : null;
+const annualCharge = r => r.eff ? S.miles / r.eff * S.price / 100 : null;
+
+/* ---------- formatting ---------- */
+const nf0 = new Intl.NumberFormat("en-GB", {maximumFractionDigits:0});
+function gbp(v, cls = true) {
+  if (v == null || !isFinite(v)) return "–";
+  const r = Math.round(v);
+  const s = (r < 0 ? "−£" : "£") + nf0.format(Math.abs(r));
+  return cls && r < 0 ? `<span class="neg">${s}</span>` : s;
+}
+const gbpTxt = v => v == null || !isFinite(v) ? "–" : (Math.round(v) < 0 ? "−£" : "£") + nf0.format(Math.abs(Math.round(v)));
+const pct = v => v == null ? "–" : v + "%";
+const fuelKey = f => ({electric:"electric",petrol:"petrol",hybrid:"hybrid",diesel:"diesel"}[String(f).toLowerCase()] || "other");
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const fuelColor = f => css("--f-" + fuelKey(f));
+const FUEL_SHAPE = {electric:"circle",petrol:"triangle",hybrid:"rectRot",diesel:"rect",other:"crossRot"};
+const shortType = r => r.type.replace(/\s+\d+DR\b/g, "").replace(/\s+AUTO\b/g, "").replace(/\bELECTRIC\s+/g, "");
+const median = a => { if (!a.length) return null; const s = a.slice().sort((x,y) => x-y), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m-1]+s[m])/2; };
+
+/* ---------- filters ---------- */
+const uniq = k => [...new Set(ROWS.map(r => r[k]))].filter(Boolean).sort();
+const P_MIN = Math.floor(Math.min(...ROWS.map(r => r.p11d || Infinity)) / 1000) * 1000;
+const P_MAX = Math.ceil(Math.max(...ROWS.map(r => r.p11d || 0)) / 1000) * 1000;
+const F = {make:new Set(), model:new Set(), fuel:new Set(), body:new Set(), pmin:P_MIN, pmax:P_MAX, text:"", ev:false, hide22:false};
+
+function fillSelect(sel, vals, set) { sel.innerHTML = vals.map(v => `<option${set.has(v) ? " selected" : ""}>${esc(v)}</option>`).join(""); }
+function bindMulti(sel, key, after) {
+  sel.addEventListener("change", () => { F[key] = new Set([...sel.selectedOptions].map(o => o.value)); after && after(); render(); });
+  // tap-to-toggle without modifier keys on desktop mice
+  sel.addEventListener("mousedown", e => {
+    if (e.target.tagName !== "OPTION" || e.ctrlKey || e.metaKey || e.shiftKey) return;
+    e.preventDefault(); e.target.selected = !e.target.selected; sel.dispatchEvent(new Event("change"));
+  });
+}
+function refreshModels() {
+  const models = [...new Set(ROWS.filter(r => !F.make.size || F.make.has(r.make)).map(r => r.model))].sort();
+  for (const m of [...F.model]) if (!models.includes(m)) F.model.delete(m);
+  fillSelect($("#fModel"), models, F.model);
+}
+function passes(r) {
+  if (F.make.size && !F.make.has(r.make)) return false;
+  if (F.model.size && !F.model.has(r.model)) return false;
+  if (F.fuel.size && !F.fuel.has(r.fuel)) return false;
+  if (F.body.size && !F.body.has(r.body)) return false;
+  if (r.p11d != null && (r.p11d < F.pmin || r.p11d > F.pmax)) return false;
+  if (F.ev && !r.ev) return false;
+  if (F.hide22 && r.kw22) return false;
+  if (F.text) { const t = r.type.toUpperCase(); for (const w of F.text) if (!t.includes(w)) return false; }
+  return true;
+}
+
+/* ---------- flags ---------- */
+function chips(r, n) {
+  const out = [];
+  if (n != null && n < 0) out.push(`<span class="chip pays" title="Net cost is negative at the selected settings: the contribution you receive exceeds your BIK tax">Pays you</span>`);
+  if (r.kw22) out.push(`<span class="chip kw22" title="22kW AC on-board charger. Pointless on a UK single-phase home supply (max ~7.4kW); only helps on three-phase public AC posts.">22kW option</span>`);
+  const b = bikYear(r, S.year);
+  if (!r.ev && b != null && b >= 24) out.push(`<span class="chip nonev" title="Not electric: BIK ${b}% (vs ${S.ev[S.year]}% for EVs)">Non-EV</span>`);
+  return out.join("");
+}
+
+/* ---------- derived rows cache per render ---------- */
+let VIEW = [];
+function derive(r) {
+  const n = net(r);
+  return {r, n, bik:bikYear(r, S.year), tax:bikTax(r, S.year, S.rate), c:contribAdj(r.contrib, S.rate), rng:range(r), ppm:ppm(r), ann:annualCharge(r)};
+}
+
+/* ---------- tables ---------- */
+const COLS_ALL = [
+  {k:"pin", h:"", sort:d => pins.has(d.r.id) ? 0 : 1, cell:d => starBtn(d.r.id)},
+  {k:"make", h:"Make", sort:d => d.r.make, cell:d => esc(d.r.make)},
+  {k:"model", h:"Model", sort:d => d.r.model, cell:d => esc(d.r.model)},
+  {k:"type", h:"Variant", sort:d => d.r.type, cell:d => `<div>${esc(d.r.type)}</div><div>${chips(d.r, d.n)}</div>`, cls:"type"},
+  {k:"fuel", h:"Fuel", sort:d => d.r.fuel, cell:d => `<span class="dot" style="background:${fuelColor(d.r.fuel)}"></span>${esc(d.r.fuel)}`},
+  {k:"body", h:"Body", sort:d => d.r.body, cell:d => esc(d.r.body)},
+  {k:"p11d", h:"P11D", num:1, sort:d => d.r.p11d, cell:d => gbp(d.r.p11d)},
+  {k:"co2", h:"CO₂ g/km", num:1, sort:d => d.r.co2, cell:d => d.r.co2 == null ? "–" : d.r.co2},
+  {k:"bik", h:"BIK %", num:1, sort:d => d.bik, cell:d => pct(d.bik)},
+  {k:"contrib", h:"Contrib £/m", num:1, sort:d => d.c, cell:d => gbp(d.c), title:"Private Use Contribution per month, after the negative-contribution treatment"},
+  {k:"tax", h:"BIK tax £/m", num:1, sort:d => d.tax, cell:d => gbp(d.tax)},
+  {k:"net", h:"Net £/m", num:1, sort:d => d.n, cell:d => `<b>${gbp(d.n)}</b>`},
+  {k:"kwh", h:"kWh", num:1, sort:d => d.r.kwh, cell:d => d.r.kwh ?? "–"},
+  {k:"eff", h:"mi/kWh*", num:1, sort:d => d.r.eff, cell:d => d.r.eff != null ? d.r.eff.toFixed(1) : (d.r.ev ? '<span class="muted" title="No efficiency estimate for this model">n/a</span>' : "–"), title:"Real-world efficiency: ESTIMATE"},
+  {k:"rng", h:"Range mi*", num:1, sort:d => d.rng, cell:d => d.rng == null ? "–" : nf0.format(d.rng), title:"Estimated real-world range"},
+  {k:"ppm", h:"p/mile*", num:1, sort:d => d.ppm, cell:d => d.ppm == null ? "–" : d.ppm.toFixed(1) + "p"},
+  {k:"ann", h:"Charging £/yr*", num:1, sort:d => d.ann, cell:d => gbp(d.ann)},
+  {k:"ins", h:"Ins grp", num:1, sort:d => d.r.ins, cell:d => d.r.ins ?? "–"},
+];
+const starBtn = id => `<button class="star" type="button" data-pin="${id}" aria-pressed="${pins.has(id)}" aria-label="${pins.has(id) ? "Unpin" : "Pin"} to shortlist">${pins.has(id) ? "★" : "☆"}</button>`;
+
+function makeTable(el, cols, initial) {
+  const st = {key:initial[0], dir:initial[1], data:[], limit:Infinity};
+  el.innerHTML = `<thead><tr>${cols.map(c => `<th data-k="${c.k}" class="${c.num ? "num" : ""}" ${c.title ? `title="${esc(c.title)}"` : ""} scope="col">${c.h}</th>`).join("")}</tr></thead><tbody></tbody>`;
+  el.querySelector("thead").addEventListener("click", e => {
+    const th = e.target.closest("th"); if (!th) return;
+    const k = th.dataset.k;
+    if (st.key === k) st.dir = -st.dir; else { st.key = k; st.dir = 1; }
+    draw();
+  });
+  function sorted() {
+    const c = cols.find(c => c.k === st.key) || cols[0];
+    return st.data.slice().sort((a, b) => {
+      const x = c.sort(a), y = c.sort(b);
+      if (x == null && y == null) return 0; if (x == null) return 1; if (y == null) return -1;
+      return (typeof x === "string" ? x.localeCompare(y) : x - y) * st.dir;
+    });
+  }
+  function draw() {
+    el.querySelectorAll("th").forEach(th => th.removeAttribute("aria-sort"));
+    const th = el.querySelector(`th[data-k="${st.key}"]`); if (th) th.setAttribute("aria-sort", st.dir > 0 ? "ascending" : "descending");
+    const rows = sorted();
+    el.tBodies[0].innerHTML = rows.map(d => `<tr class="${pins.has(d.r.id) ? "pinned" : ""}">${cols.map(c => `<td class="${c.num ? "num" : ""} ${c.cls || ""}">${c.cell(d)}</td>`).join("")}</tr>`).join("")
+      || `<tr><td colspan="${cols.length}" class="muted">No cars match the filters.</td></tr>`;
+  }
+  return {set(data) { st.data = data; draw(); }, sorted, draw};
+}
+const tAll = makeTable($("#tAll"), COLS_ALL, ["net", 1]);
+const COLS_BEST = [COLS_ALL[0], COLS_ALL[1], COLS_ALL[2], {k:"n", h:"Variants", num:1, sort:d => d.count, cell:d => d.count}, ...COLS_ALL.slice(3).filter(c => !["body","co2","ins","ann","kwh"].includes(c.k))];
+const tBest = makeTable($("#tBest"), COLS_BEST, ["net", 1]);
+
+/* ---------- charts ---------- */
+const HAS_CHART = typeof window.Chart !== "undefined";
+if (!HAS_CHART) document.querySelectorAll(".chartbox").forEach(b => b.innerHTML = '<p class="muted" style="padding:40px 0;text-align:center">Charts need Chart.js from cdnjs.cloudflare.com, which could not be loaded. Tables and figures below still work.</p>');
+if (HAS_CHART) {
+Chart.defaults.font.family = getComputedStyle(document.body).fontFamily;
+Chart.defaults.font.size = 12;
+Chart.defaults.animation = false;
+Chart.defaults.maintainAspectRatio = false;
+Chart.defaults.plugins.legend.display = false;
+}
+const charts = {};
+const gbpTick = v => gbpTxt(v);
+function themeCharts() {
+  Chart.defaults.color = css("--muted");
+  Chart.defaults.borderColor = css("--grid");
+}
+function axes(xTitle, yTitle, extra = {}) {
+  const t = txt => ({display:!!txt, text:txt, color:css("--ink-2")});
+  return {
+    x:{grid:{color:css("--grid")}, border:{color:css("--axis")}, title:t(xTitle), ...(extra.x || {})},
+    y:{grid:{color:ctx => ctx.tick && ctx.tick.value === 0 ? css("--axis") : css("--grid"), lineWidth:ctx => ctx.tick && ctx.tick.value === 0 ? 1.5 : 1}, border:{display:false}, title:t(yTitle), ticks:{callback:gbpTick}, ...(extra.y || {})},
+  };
+}
+const tooltipBase = () => ({backgroundColor:css("--surface"), titleColor:css("--ink"), bodyColor:css("--ink-2"), borderColor:css("--border"), borderWidth:1, padding:10, boxPadding:4, usePointStyle:true});
+const MAKE_PAL_L = ["#2a78d6","#eb6834","#1baf7a","#eda100","#e87ba4","#008300","#4a3aa7","#e34948"];
+const MAKE_PAL_D = ["#3987e5","#d95926","#199e70","#c98500","#d55181","#008300","#9085e9","#e66767"];
+const isDark = () => matchMedia("(prefers-color-scheme: dark)").matches && document.documentElement.dataset.theme !== "light" || document.documentElement.dataset.theme === "dark";
+const MAKES = uniq("make");
+const makeColor = m => (isDark() ? MAKE_PAL_D : MAKE_PAL_L)[MAKES.indexOf(m) % 8];
+const MAKE_SHAPES = ["circle","triangle","rect","rectRot","star","crossRot","rectRounded","cross"];
+const makeShape = m => MAKE_SHAPES[MAKES.indexOf(m) % 8];
+
+function onPointClick(chart) {
+  return (evt, els) => { if (!els.length) return; const p = chart().data.datasets[els[0].datasetIndex].data[els[0].index]; if (p && p.id != null) togglePin(p.id); };
+}
+function ensureChart(key, cfg) {
+  if (charts[key]) { charts[key].data = cfg.data; charts[key].options = cfg.options; charts[key].update("none"); }
+  else charts[key] = new Chart(document.getElementById(key), cfg);
+}
+function pointTip(ctx) { const p = ctx.raw; return [`${p.r.make} ${shortType(p.r)}`, `Net ${gbpTxt(p.n)}/m · P11D ${gbpTxt(p.r.p11d)}${p.rng ? " · " + nf0.format(p.rng) + " mi" : ""}`]; }
+
+function drawCharts() {
+  if (!HAS_CHART) return;
+  themeCharts();
+  const view = VIEW.filter(d => d.n != null);
+  const fuels = [...new Set(view.map(d => d.r.fuel))].sort((a,b) => ["Electric","Hybrid","Petrol","Diesel"].indexOf(a) - ["Electric","Hybrid","Petrol","Diesel"].indexOf(b));
+  const lg = fuels.map(f => `<span><i style="background:${fuelColor(f)}"></i>${esc(f)}</span>`).join("");
+  $("#lgFuel1").innerHTML = lg; $("#lgFuel2").innerHTML = lg;
+
+  // 1. strip plot by make
+  const makes = [...new Set(view.map(d => d.r.make))].sort((a,b) => median(view.filter(d => d.r.make === a).map(d => d.n)) - median(view.filter(d => d.r.make === b).map(d => d.n)));
+  const jitter = id => ((id * 2654435761) % 1000) / 1000 - 0.5;
+  const stripSets = fuels.map(f => ({
+    type:"scatter", label:f, pointStyle:FUEL_SHAPE[fuelKey(f)],
+    data:view.filter(d => d.r.fuel === f).map(d => ({x:makes.indexOf(d.r.make) + jitter(d.r.id) * 0.55, y:d.n, id:d.r.id, r:d.r, n:d.n})),
+    backgroundColor:fuelColor(f) + "b3", borderColor:css("--surface"), borderWidth:1, pointRadius:4.5, pointHoverRadius:7,
+  }));
+  const medSet = {type:"scatter", label:"Median", data:makes.map((m, i) => ({x:i, y:median(view.filter(d => d.r.make === m).map(d => d.n)), med:true, make:m})),
+    pointStyle:"line", pointRadius:22, pointHoverRadius:22, borderWidth:3, borderColor:css("--ink"), backgroundColor:css("--ink")};
+  ensureChart("cMake", {type:"scatter", data:{datasets:[...stripSets, medSet]}, options:{
+    onClick:onPointClick(() => charts.cMake),
+    scales:axes(null, "Net £/month", {x:{min:-0.6, max:makes.length - 0.4, grid:{display:false}, afterBuildTicks:ax => { ax.ticks = makes.map((_, i) => ({value:i})); }, ticks:{stepSize:1, autoSkip:false, maxRotation:60, callback:v => Number.isInteger(v) ? (makes[v] || "").replace("MERCEDES-BENZ","MERCEDES") : ""}}}),
+    plugins:{tooltip:{...tooltipBase(), callbacks:{label:ctx => ctx.raw.med ? `${ctx.raw.make} median ${gbpTxt(ctx.raw.y)}/m` : pointTip(ctx)}}},
+  }});
+
+  // 2. P11D vs net
+  ensureChart("cScatter", {type:"scatter", data:{datasets:fuels.map(f => ({
+    label:f, pointStyle:FUEL_SHAPE[fuelKey(f)],
+    data:view.filter(d => d.r.fuel === f && d.r.p11d).map(d => ({x:d.r.p11d, y:d.n, id:d.r.id, r:d.r, n:d.n, rng:d.rng})),
+    backgroundColor:fuelColor(f) + "b3", borderColor:css("--surface"), borderWidth:1, pointRadius:4.5, pointHoverRadius:7,
+    pointBorderColor:ctx => ctx.raw && pins.has(ctx.raw.id) ? css("--star") : css("--surface"), pointBorderWidth:ctx => ctx.raw && pins.has(ctx.raw.id) ? 2.5 : 1,
+  }))}, options:{
+    onClick:onPointClick(() => charts.cScatter),
+    scales:axes("P11D", "Net £/month", {x:{ticks:{callback:v => "£" + v / 1000 + "k"}}}),
+    plugins:{tooltip:{...tooltipBase(), callbacks:{label:pointTip}}},
+  }});
+
+  // 3. BIK trajectory for shortlist
+  const pinned = [...pins].map(id => BYID.get(id)).filter(Boolean);
+  const trajSets = pinned.map((r, i) => {
+    const col = (isDark() ? MAKE_PAL_D : MAKE_PAL_L)[i % 8];
+    return {type:"line", label:`${r.make} ${shortType(r)}`, data:YEARS.map((_, y) => bikTax(r, y, S.rate)), borderColor:col, backgroundColor:col, borderWidth:2, pointRadius:4, pointHoverRadius:6, tension:0, _bik:YEARS.map((_, y) => bikYear(r, y))};
+  });
+  $("#lgTraj").innerHTML = pinned.length ? pinned.map((r, i) => `<span><i style="background:${(isDark() ? MAKE_PAL_D : MAKE_PAL_L)[i % 8]}"></i>${esc(r.make + " " + shortType(r))}</span>`).join("") : '<span class="muted">Pin some cars to see their trajectory.</span>';
+  ensureChart("cTraj", {type:"line", data:{labels:YEARS, datasets:trajSets}, options:{
+    interaction:{mode:"index", intersect:false},
+    scales:axes(null, `BIK tax £/month @ ${S.rate * 100}%`, {y:{beginAtZero:true, ticks:{callback:gbpTick}}}),
+    plugins:{tooltip:{...tooltipBase(), callbacks:{label:ctx => `${ctx.dataset.label}: ${gbpTxt(ctx.raw)} (${ctx.dataset._bik[ctx.dataIndex]}%)`}}},
+  }});
+
+  // 4. EV range vs net, coloured by make
+  const evs = view.filter(d => d.rng != null);
+  const evMakes = [...new Set(evs.map(d => d.r.make))].sort();
+  $("#lgMake").innerHTML = evMakes.map(m => `<span><i style="background:${makeColor(m)}"></i>${esc(m)}</span>`).join("");
+  ensureChart("cRange", {type:"scatter", data:{datasets:evMakes.map(m => ({
+    label:m, pointStyle:makeShape(m),
+    data:evs.filter(d => d.r.make === m).map(d => ({x:d.rng, y:d.n, id:d.r.id, r:d.r, n:d.n, rng:d.rng})),
+    backgroundColor:makeColor(m) + "b3", borderColor:css("--surface"), borderWidth:1, pointRadius:5, pointHoverRadius:7,
+  }))}, options:{
+    onClick:onPointClick(() => charts.cRange),
+    scales:axes("Estimated real-world range (miles)", "Net £/month"),
+    plugins:{tooltip:{...tooltipBase(), callbacks:{label:pointTip}}},
+  }});
+}
+
+/* ---------- KPIs ---------- */
+const perM = v => v == null ? "–" : gbp(v) + '<span class="sub"> /m</span>';
+function kpi(lbl, val, det) { return `<div class="card kpi"><div class="lbl">${lbl}</div><div class="val">${val}</div><div class="det">${det || ""}</div></div>`; }
+function drawKpis() {
+  const v = VIEW.filter(d => d.n != null);
+  const evs = v.filter(d => d.r.ev), non = v.filter(d => !d.r.ev);
+  const cheapest = v.reduce((a, d) => !a || d.n < a.n ? d : a, null);
+  const bestEv = evs.reduce((a, d) => !a || d.n < a.n ? d : a, null);
+  const lbl = `${YEARS[S.year]}, ${S.rate * 100}% taxpayer`;
+  $("#kpis").innerHTML = [
+    kpi("Cars shown", nf0.format(VIEW.length), `of ${nf0.format(ROWS.length)} on the list`),
+    kpi("EVs shown", nf0.format(VIEW.filter(d => d.r.ev).length), `${VIEW.length ? Math.round(VIEW.filter(d => d.r.ev).length / VIEW.length * 100) : 0}% of shown`),
+    kpi("Cheapest net car", perM(cheapest && cheapest.n), cheapest ? esc(cheapest.r.make + " " + shortType(cheapest.r)) : ""),
+    kpi("Best-paying EV", perM(bestEv && bestEv.n), bestEv ? esc(bestEv.r.make + " " + shortType(bestEv.r)) : ""),
+    kpi("Median net: EV", perM(median(evs.map(d => d.n))), `${evs.length} EVs · ${lbl}`),
+    kpi("Median net: non-EV", perM(median(non.map(d => d.n))), `${non.length} cars · ${lbl}`),
+  ].join("");
+}
+
+/* ---------- shortlist ---------- */
+function drawShortlist() {
+  const list = [...pins].map(id => BYID.get(id)).filter(Boolean);
+  $("#sl").innerHTML = list.length ? list.map(r => {
+    const rg = range(r), p = ppm(r);
+    const tax = RATES.map(rt => net(r, S.year, rt));
+    return `<div class="slc"><button class="star x" type="button" data-pin="${r.id}" aria-pressed="true" aria-label="Unpin">★</button>
+      <h3><span class="dot" style="background:${fuelColor(r.fuel)}"></span>${esc(r.make)} ${esc(r.model)}</h3>
+      <div class="t">${esc(r.type)}</div>
+      <dl>
+        <dt>P11D</dt><dd>${gbp(r.p11d)}</dd>
+        <dt>Contribution /m</dt><dd>${gbp(contribAdj(r.contrib, S.rate))}</dd>
+        <dt>BIK ${YEARS[S.year]}</dt><dd>${pct(bikYear(r, S.year))}</dd>
+        <dt>Net @ 20%</dt><dd>${gbp(net(r, S.year, 0.20))}</dd>
+        <dt>Net @ 40%</dt><dd>${gbp(net(r, S.year, 0.40))}</dd>
+        <dt>Net 2029/30 @ ${S.rate * 100}%</dt><dd>${gbp(net(r, 3, S.rate))}</dd>
+        <dt>Range*</dt><dd>${rg == null ? "–" : nf0.format(rg) + " mi"}</dd>
+        <dt>Pence/mile*</dt><dd>${p == null ? "–" : p.toFixed(1) + "p"}</dd>
+      </dl><div style="margin-top:6px">${chips(r, net(r))}</div></div>`;
+  }).join("") : '<div class="muted">No cars pinned yet.</div>';
+}
+function togglePin(id) { pins.has(id) ? pins.delete(id) : pins.add(id); persist(); render(); }
+document.addEventListener("click", e => { const b = e.target.closest("[data-pin]"); if (b) togglePin(+b.dataset.pin); });
+
+/* ---------- main render ---------- */
+let raf = 0;
+function render() { cancelAnimationFrame(raf); raf = requestAnimationFrame(renderNow); }
+function renderNow() {
+  VIEW = ROWS.filter(passes).map(derive);
+  $("#countLine").textContent = `${VIEW.length} of ${ROWS.length} cars`;
+  $("#allCount").textContent = `${VIEW.length} rows`;
+  drawKpis();
+  tAll.set(VIEW);
+  const best = new Map();
+  for (const d of VIEW) {
+    if (d.n == null) continue;
+    const k = d.r.make + "|" + d.r.model, cur = best.get(k);
+    if (!cur) best.set(k, {...d, count:1}); else { cur.count++; if (d.n < cur.n) best.set(k, {...d, count:cur.count}); }
+  }
+  tBest.set([...best.values()]);
+  drawShortlist();
+  drawCharts();
+  drawNegNote();
+  drawFoot();
+}
+
+/* ---------- controls ---------- */
+function segButtons(el, items, get, set) {
+  el.innerHTML = items.map((it, i) => `<button type="button" data-i="${i}">${it.label}</button>`).join("");
+  const sync = () => el.querySelectorAll("button").forEach((b, i) => b.setAttribute("aria-pressed", items[i].value === get()));
+  el.addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; set(items[+b.dataset.i].value); sync(); persist(); render(); });
+  sync(); return sync;
+}
+const syncYear = segButtons($("#yearSeg"), YEARS.map((y, i) => ({label:y.replace("20", "").replace("/20", "/"), value:i})), () => S.year, v => S.year = v);
+const syncRate = segButtons($("#rateSeg"), RATES.map(r => ({label:r * 100 + "%", value:r})), () => S.rate, v => S.rate = v);
+
+fillSelect($("#fMake"), uniq("make"), F.make);
+fillSelect($("#fFuel"), uniq("fuel"), F.fuel);
+fillSelect($("#fBody"), uniq("body"), F.body);
+refreshModels();
+bindMulti($("#fMake"), "make", refreshModels);
+bindMulti($("#fModel"), "model");
+bindMulti($("#fFuel"), "fuel");
+bindMulti($("#fBody"), "body");
+const pMin = $("#pMin"), pMax = $("#pMax");
+for (const el of [pMin, pMax]) { el.min = P_MIN; el.max = P_MAX; el.step = 500; }
+pMin.value = P_MIN; pMax.value = P_MAX;
+function syncP() {
+  let a = +pMin.value, b = +pMax.value;
+  if (a > b) { if (document.activeElement === pMin) pMin.value = a = b; else pMax.value = b = a; }
+  F.pmin = a; F.pmax = b;
+  $("#pLbl").textContent = `${gbpTxt(a)} – ${gbpTxt(b)}`;
+  const span = P_MAX - P_MIN || 1;
+  $("#pFill").style.left = (a - P_MIN) / span * 100 + "%"; $("#pFill").style.width = (b - a) / span * 100 + "%";
+}
+pMin.addEventListener("input", () => { syncP(); render(); });
+pMax.addEventListener("input", () => { syncP(); render(); });
+syncP();
+$("#fText").addEventListener("input", e => { F.text = e.target.value.trim().toUpperCase().split(/\s+/).filter(Boolean); if (!F.text.length) F.text = ""; render(); });
+$("#fEV").addEventListener("change", e => { F.ev = e.target.checked; render(); });
+$("#f22").addEventListener("change", e => { F.hide22 = e.target.checked; render(); });
+$("#resetBtn").addEventListener("click", () => {
+  F.make.clear(); F.model.clear(); F.fuel.clear(); F.body.clear(); F.text = ""; F.ev = F.hide22 = false;
+  $("#fText").value = ""; $("#fEV").checked = $("#f22").checked = false; pMin.value = P_MIN; pMax.value = P_MAX; syncP();
+  fillSelect($("#fMake"), uniq("make"), F.make); fillSelect($("#fFuel"), uniq("fuel"), F.fuel); fillSelect($("#fBody"), uniq("body"), F.body); refreshModels();
+  render();
+});
+$("#slClear").addEventListener("click", () => { pins.clear(); persist(); render(); });
+
+/* assumptions inputs */
+const A = [
+  ["#aNeg", () => S.neg, v => S.neg = v, String],
+  ["#aNiB", () => S.niB, v => S.niB = v], ["#aNiH", () => S.niH, v => S.niH = v],
+  ["#aPrice", () => S.price, v => S.price = v], ["#aMiles", () => S.miles, v => S.miles = v], ["#aUsable", () => S.usable, v => S.usable = v],
+  ...[0,1,2,3].map(i => [`#aEv${i}`, () => S.ev[i], v => S.ev[i] = v]),
+  ...[1,2,3].map(i => [`#aUp${i}`, () => S.up[i], v => S.up[i] = v]),
+  ["#aCap0", () => S.cap[0], v => { S.cap[0] = S.cap[1] = v; }],
+  ["#aCap2", () => S.cap[2], v => S.cap[2] = v], ["#aCap3", () => S.cap[3], v => S.cap[3] = v],
+];
+function syncAssump() { for (const [sel, get] of A) $(sel).value = get(); drawBands(); }
+for (const [sel, , set, conv = Number] of A) $(sel).addEventListener("input", e => { const v = conv(e.target.value); if (conv === Number && !isFinite(v)) return; set(v); persist(); render(); });
+function drawBands() {
+  const t = $("#bandTbl");
+  t.innerHTML = `<thead><tr><th>CO₂ from</th><th>to</th><th>BIK %</th></tr></thead><tbody>${S.bands.map((b, i) => `<tr><td>${b[0]}</td><td>${b[1] >= 999 ? "+" : b[1]}</td><td><input type="number" data-band="${i}" value="${b[2]}" style="width:64px;padding:3px 6px"></td></tr>`).join("")}</tbody>`;
+}
+$("#bandTbl").addEventListener("input", e => { const i = e.target.dataset.band; if (i == null) return; const v = +e.target.value; if (!isFinite(v)) return; S.bands[i][2] = v; persist(); render(); });
+$("#aReset").addEventListener("click", () => { const y = S.year, r = S.rate; S = structuredClone(DEF); S.year = y; S.rate = r; syncAssump(); persist(); render(); });
+syncAssump();
+
+function drawNegNote() {
+  const txt = {a:"shown as cash paid to you, untaxed", b:`shown as cash via payroll, taxed at ${S.rate * 100}% plus ${S.rate <= 0.2 ? S.niB : S.niH}% employee NI`, c:"treated as zero"}[S.neg];
+  $("#negNote").innerHTML = `<b>Unconfirmed:</b> negative Private Use Contributions are ${txt}. Contributions are assumed to be monthly. Change this under Assumptions. Real-world range, p/mile and charging costs use <b>estimated</b> efficiency figures (marked *).`;
+}
+
+/* CSV export */
+$("#csvBtn").addEventListener("click", () => {
+  const rows = tAll.sorted();
+  const head = ["Make","Model","Type","Fuel","BodyStyle","P11D","CO2 g/km","CO2 source",`BIK % ${YEARS[S.year]}`,"Contribution £/m (raw)","Contribution £/m (applied)",`BIK tax £/m @${S.rate*100}%`,"Net £/m","Battery kWh","mi/kWh (estimate)","Range mi (estimate)","p/mile (estimate)","Charging £/yr (estimate)","InsuranceGroup","22kW option", ...DATA.extraCols];
+  const q = v => { if (v == null) return ""; const s = String(v); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
+  const r2 = v => v == null ? "" : Math.round(v * 100) / 100;
+  const lines = [head.map(q).join(",")].concat(rows.map(d => [d.r.make, d.r.model, d.r.type, d.r.fuel, d.r.body, d.r.p11d, d.r.co2, d.r.co2src, d.bik, d.r.contrib, r2(d.c), r2(d.tax), r2(d.n), d.r.kwh, d.r.eff, d.rng == null ? "" : Math.round(d.rng), d.ppm == null ? "" : d.ppm.toFixed(2), r2(d.ann), d.r.ins, d.r.kw22 ? "yes" : "", ...DATA.extraCols.map(c => d.r.x[c])].map(q).join(",")));
+  const blob = new Blob(["﻿" + lines.join("\r\n")], {type:"text/csv;charset=utf-8"});
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `car-list-filtered-${YEARS[S.year].replace("/", "-")}.csv`; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+});
+
+/* warnings + footer */
+function drawWarnings() {
+  const parts = [];
+  if (DATA.noEff.length) parts.push(`<p><b>Missing efficiency data</b> (${DATA.noEff.length} EVs): no real-world mi/kWh estimate, so range and running cost are blank.</p><ul class="warnlist">${DATA.noEff.map(t => `<li>${esc(t)}</li>`).join("")}</ul>`);
+  if (DATA.failures.length) parts.push(`<p><b>Rows that failed to parse</b> (${DATA.failures.length}):</p><ul class="warnlist">${DATA.failures.map(t => `<li>${esc(t)}</li>`).join("")}</ul>`);
+  if (parts.length) { $("#warnCard").hidden = false; $("#warnBody").innerHTML = parts.join(""); }
+}
+function drawFoot() {
+  $("#foot").innerHTML = [
+    `CO₂ uses the "with maximum options" figure where present, otherwise the standard figure.`,
+    `BIK 2026/27: EVs (0 g/km) ${S.ev[0]}%. Non-EVs assume WLTP, registered after April 2020, RDE2 diesels (no 4% supplement): 51–54g 17% rising to ${S.cap[0]}% at 155g+ (see band table).`,
+    `Future BIK: EV ${S.ev[1]}% / ${S.ev[2]}% / ${S.ev[3]}% for 27/28, 28/29, 29/30. Non-EV +${S.up[1]} / +${S.up[2]} / +${S.up[3]}pp, capped at ${S.cap[1]}% / ${S.cap[2]}% / ${S.cap[3]}%.`,
+    `Monthly BIK tax = P11D × BIK% × income tax rate ÷ 12. Net £/month = Private Use Contribution (after treatment) + BIK tax. Negative means you gain.`,
+    `Private Use Contribution is assumed to be monthly. Treatment of negative contributions is <b>unconfirmed</b>: (a) untaxed cash, (b) payroll cash taxed at your rate plus employee NI (${S.niB}% basic, ${S.niH}% higher), (c) zero.`,
+    `<b>Estimates:</b> real-world efficiency (mi/kWh) per model is an estimate, not manufacturer data. Range = battery kWh (parsed from the variant name) × ${S.usable} × mi/kWh. Pence/mile = ${S.price}p/kWh ÷ mi/kWh. Charging £/yr = ${nf0.format(S.miles)} miles ÷ mi/kWh × price. Home charging only; public charging costs much more.`,
+    `Excludes NI on BIK (employer-side only), salary sacrifice effects, fuel benefit, and Scottish income tax bands.`,
+    `Data: ${esc(DATA.source)} (sheet “${esc(DATA.sheet)}”), built ${esc(DATA.built)}.`,
+  ].map(s => `<li>${s}</li>`).join("");
+}
+$("#srcLine").textContent = `${ROWS.length} cars from ${DATA.source} · built ${DATA.built}`;
+drawWarnings();
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", render);
+renderNow();
+window.__dash = {net, bikYear, rows:ROWS, S};
+})();
+</script>
+</body>
+</html>
