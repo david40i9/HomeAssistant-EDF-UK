@@ -600,7 +600,9 @@ class EDFEnergyApiClient:
     Also picks direct debit or non direct debit product prices based on the account's direct debit.
     """
     for point in (account_info or {}).get("electricity_meter_points") or []:
-      if point.get("is_export") and point.get("mpan") is not None and account_info.get("id") is not None:
+      # is_export is recorded on each meter, not on the meter point
+      is_export = any(meter.get("is_export") for meter in point.get("meters") or [])
+      if is_export and point.get("mpan") is not None and account_info.get("id") is not None:
         self._export_mpans[str(point["mpan"])] = account_info["id"]
 
     if account_info is not None and "direct_debit_status" in account_info:

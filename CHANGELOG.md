@@ -2,6 +2,11 @@
 
 Version history of this fork. Versions are shown in Home Assistant under the integration's details. Credits in brackets name the people whose fixes, reports or findings each change is based on. For the reasoning behind each fix, see [FORK_CHANGES.md](FORK_CHANGES.md); for what every entity does, see [docs/ENTITIES.md](docs/ENTITIES.md).
 
+## 2.2.2 (2026-09-25)
+
+### Fixed
+- Export consumption from 2.2.0 wasn't used: export meters weren't recognised. They are now.
+
 ## 2.2.1 (2026-09-25)
 
 ### Fixed
