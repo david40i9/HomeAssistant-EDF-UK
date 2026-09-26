@@ -261,10 +261,10 @@ try {
   const saved = JSON.parse(localStorage.getItem(LS_KEY) || "null");
   if (saved && saved.src === DATA.source) {
     Object.assign(S, saved.S || {});
-    if (Array.isArray(saved.pins)) pins = new Set(saved.pins.filter(id => BYID.has(id)));
+    if (Array.isArray(saved.pins) && saved.scope === DATA.scope) pins = new Set(saved.pins.filter(id => BYID.has(id)));
   }
 } catch (e) {}
-const persist = () => { try { localStorage.setItem(LS_KEY, JSON.stringify({src:DATA.source, S, pins:[...pins]})); } catch (e) {} };
+const persist = () => { try { localStorage.setItem(LS_KEY, JSON.stringify({src:DATA.source, scope:DATA.scope, S, pins:[...pins]})); } catch (e) {} };
 
 /* ---------- calculations (mirror build.py) ---------- */
 function bik2627(r) {
@@ -550,7 +550,9 @@ function drawKpis() {
     kpi("Cheapest net car", perM(cheapest && cheapest.n), cheapest ? esc(cheapest.r.make + " " + shortType(cheapest.r)) : ""),
     kpi("Best-paying EV", perM(bestEv && bestEv.n), bestEv ? esc(bestEv.r.make + " " + shortType(bestEv.r)) : ""),
     kpi("Median net: EV", perM(median(evs.map(d => d.n))), `${evs.length} EVs · ${lbl}`),
-    kpi("Median net: non-EV", perM(median(non.map(d => d.n))), `${non.length} cars · ${lbl}`),
+    non.length || !DATA.scope
+      ? kpi("Median net: non-EV", perM(median(non.map(d => d.n))), `${non.length} cars · ${lbl}`)
+      : kpi("Median 0-62 mph", (m => m == null ? "–" : m.toFixed(1) + '<span class="sub"> s</span>')(median(v.filter(d => d.r.acc != null).map(d => d.r.acc))), `${v.filter(d => d.r.acc != null).length} cars shown`),
   ].join("");
 }
 
@@ -722,10 +724,13 @@ function drawFoot() {
     `<b>Estimates:</b> real-world efficiency (mi/kWh) per model is an estimate, not manufacturer data. Range = battery kWh (parsed from the variant name) × ${S.usable} × mi/kWh. Pence/mile = ${S.price}p/kWh ÷ mi/kWh. Charging £/yr = ${nf0.format(S.miles)} miles ÷ mi/kWh × price. Home charging only; public charging costs much more.`,
     `<b>0-62 mph (†)</b> is not in the car list. These are manufacturer-quoted figures, looked up separately in September 2026 from maker and UK motoring press sites (hover a value for its source). Where no confirmed figure was found, it is left blank.`,
     `Excludes NI on BIK (employer-side only), salary sacrifice effects, fuel benefit, and Scottish income tax bands.`,
+    ...(DATA.scope ? [`Scope: only ${esc(DATA.scope)} cars are included (${ROWS.length} of ${DATA.totalRows} on the list). Rebuild with <code>python build.py --all</code> for the full list.`] : []),
     `Data: ${esc(DATA.source)} (sheet “${esc(DATA.sheet)}”), built ${esc(DATA.built)}.`,
   ].map(s => `<li>${s}</li>`).join("");
 }
-$("#srcLine").textContent = `${ROWS.length} cars from ${DATA.source} · built ${DATA.built}`;
+$("#srcLine").textContent = DATA.scope
+  ? `${DATA.scope}: ${ROWS.length} of ${DATA.totalRows} cars from ${DATA.source} · built ${DATA.built}`
+  : `${ROWS.length} cars from ${DATA.source} · built ${DATA.built}`;
 drawWarnings();
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", render);
 renderNow();

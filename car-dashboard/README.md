@@ -6,7 +6,11 @@ A single self-contained HTML page (`dashboard.html`) that analyses the company c
 pip install pandas openpyxl
 python build.py                     # reads Car_List.xlsx, writes dashboard.html
 python build.py new_list.xlsx out.html
+python build.py --all               # every car, ignoring the trim below
 ```
+
+The dashboard is currently trimmed to **Mercedes CLA electric, BYD and Toyota electric**
+(`SCOPE` in `build.py`). Edit `SCOPE` to change it, or use `--all` for the full list.
 
 - `build.py` reads the first sheet, works out CO2, 2026/27 BIK %, battery kWh, estimated
   real-world mi/kWh and the 22kW-charger flag, then embeds the rows as JSON in

@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Build a self-contained HTML dashboard from a UK company car list.
 
-Usage:  python build.py [Car_List.xlsx] [dashboard.html]
+Usage:  python build.py [Car_List.xlsx] [dashboard.html] [--all]
+
+By default only the cars in SCOPE are published; --all publishes every row.
 
 Reads the first sheet, derives CO2 / BIK / battery / efficiency fields and
 embeds everything as JSON in template.html -> dashboard.html. All money
@@ -20,8 +22,10 @@ from pathlib import Path
 import pandas as pd
 
 HERE = Path(__file__).resolve().parent
-SRC = Path(sys.argv[1]) if len(sys.argv) > 1 else HERE / "Car_List.xlsx"
-OUT = Path(sys.argv[2]) if len(sys.argv) > 2 else HERE / "dashboard.html"
+ALL = "--all" in sys.argv
+ARGS = [a for a in sys.argv[1:] if a != "--all"]
+SRC = Path(ARGS[0]) if len(ARGS) > 0 else HERE / "Car_List.xlsx"
+OUT = Path(ARGS[1]) if len(ARGS) > 1 else HERE / "dashboard.html"
 TEMPLATE = HERE / "template.html"
 
 COL = {
@@ -37,11 +41,20 @@ COL = {
     "ins": "InsuranceGroup",
 }
 
+# Cars published to the dashboard: (make, regex on Type, electric only). Pass --all to skip.
+SCOPE_LABEL = "Mercedes CLA electric, BYD and Toyota electric"
+SCOPE = [
+    ("MERCEDES-BENZ", r"^CLA ELECTRIC\b", True),
+    ("BYD", r"", True),
+    ("TOYOTA", r"", True),
+]
+
 # Pre-pinned shortlist: (make, regex on Type). First (cheapest P11D) match is pinned.
 PREPIN = [
+    ("MERCEDES-BENZ", r"^CLA ELECTRIC SALOON CLA 200 .*\bSPORT\b"),
+    ("MERCEDES-BENZ", r"^CLA ELECTRIC SALOON CLA 250\+ .*\bSPORT\b"),
+    ("MERCEDES-BENZ", r"^CLA ELECTRIC SHOOTING BRAKE CLA 250\+ .*\bSPORT\b"),
     ("BYD", r"^SEALION 7 .*\bCOMFORT\b"),
-    ("BMW", r"^IX1 .*\bEDRIVE20 XLINE\b"),
-    ("LEXUS", r"^RZ .*\b350E\b.*\bPREMIUM\+"),
 ]
 
 # ---------------------------------------------------------------------------
@@ -341,6 +354,17 @@ def main():
             "x": extras,
         })
 
+    all_rows = rows
+    if not ALL:
+        def in_scope(r):
+            return any(r["make"].upper() == mk and re.search(rx, r["type"]) and (r["ev"] or not ev_only)
+                       for mk, rx, ev_only in SCOPE)
+        rows = [r for r in all_rows if in_scope(r)]
+        keep = {r["id"] for r in rows}
+        failures = [f for f in failures if int(f.split(":")[0].split()[1]) - 2 in keep]
+        no_eff = [f for f in no_eff if any(f == f"{r['make']} | {r['type']}" for r in rows)]
+        no_acc = [f for f in no_acc if any(f == f"{r['make']} | {r['type']}" for r in rows)]
+
     # Pre-pins
     pins = []
     for make, rx in PREPIN:
@@ -356,6 +380,8 @@ def main():
         "pins": pins,
         "extraCols": extra,
         "source": SRC.name,
+        "scope": None if ALL else SCOPE_LABEL,
+        "totalRows": len(all_rows),
         "sheet": sheet,
         "built": date.today().isoformat(),
         "noEff": no_eff,
@@ -366,7 +392,8 @@ def main():
     js = json.dumps(payload, separators=(",", ":"), ensure_ascii=False).replace("</", "<\\/")
     html = TEMPLATE.read_text(encoding="utf-8").replace("/*__DATA__*/null", js)
     OUT.write_text(html, encoding="utf-8")
-    print(f"\nWrote {OUT.name}: {len(rows)} cars, {sum(r['ev'] for r in rows)} EVs, {OUT.stat().st_size/1024:.0f} KB")
+    print(f"\nScope: {'all cars' if ALL else SCOPE_LABEL} ({len(rows)} of {len(all_rows)} rows)")
+    print(f"Wrote {OUT.name}: {len(rows)} cars, {sum(r['ev'] for r in rows)} EVs, {OUT.stat().st_size/1024:.0f} KB")
 
     print(f"\nRows failing to parse: {len(failures)}")
     for f in failures:
@@ -384,7 +411,7 @@ def main():
         return r["contrib"] + r["p11d"] * b / 100 * rate / 12, b
 
     def find(make, rx):
-        for r in sorted(rows, key=lambda r: (bool(OPTION_RE.search(r["type"])), r["p11d"] or 0)):
+        for r in sorted(all_rows, key=lambda r: (bool(OPTION_RE.search(r["type"])), r["p11d"] or 0)):
             if r["make"].upper() == make and re.search(rx, r["type"]):
                 return r
 
@@ -392,7 +419,7 @@ def main():
         ("BMW", r"^3 SERIES TOURING 320I M SPORT", 37),
         ("BMW", r"^IX1 .*EDRIVE20 XLINE", 4),
         ("BYD", r"^SEALION 7 .*COMFORT", 4),
-        ("LEXUS", r"^RZ .*350E.*PREMIUM\+", 4),
+        ("MERCEDES-BENZ", r"^CLA ELECTRIC SALOON CLA 250\+ .*SPORT", 4),
         ("TOYOTA", r"^YARIS\b", None),
     ]
     print("\nSpot checks (40% rate, 2026/27, negative contribution = untaxed cash):")
