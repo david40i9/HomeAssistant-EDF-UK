@@ -23,16 +23,19 @@ class GasMeterReadingsCoordinatorResult(BaseCoordinatorResult):
     read_at: str | None
     value: float | None
     registers: list | None
+    details: dict | None
 
     def __init__(self, last_evaluated: datetime, request_attempts: int,
                  read_at, value,
                  last_retrieved: datetime | None = None,
                  last_error: Exception | None = None,
-                 registers: list | None = None):
+                 registers: list | None = None,
+                 details: dict | None = None):
         super().__init__(last_evaluated, request_attempts, REFRESH_RATE_IN_MINUTES_ACCOUNT, last_retrieved, last_error)
         self.read_at = read_at
         self.value = value
         self.registers = registers
+        self.details = details
 
 
 async def async_refresh_gas_meter_readings_data(
@@ -54,6 +57,7 @@ async def async_refresh_gas_meter_readings_data(
             return GasMeterReadingsCoordinatorResult(
                 current, 1, data.get("read_at"), data.get("value"),
                 registers=data.get("registers"),
+                details={k: data.get(k) for k in ("reading_source", "source", "previous")},
             )
     except Exception as e:
         if not isinstance(e, ApiException):
@@ -69,6 +73,7 @@ async def async_refresh_gas_meter_readings_data(
             existing.last_retrieved,
             last_error=raised_exception,
             registers=existing.registers,
+            details=existing.details,
         )
 
     return GasMeterReadingsCoordinatorResult(

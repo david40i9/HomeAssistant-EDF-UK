@@ -113,7 +113,9 @@ class EDFEnergyNextPayment(EDFEnergyBillingSensor):
 
 
 class EDFEnergyLastStatement(EDFEnergyBillingSensor):
-    """Charges on the most recent statement (bill), with its period and balances."""
+    """Net amount of the most recent statement (bill): positive when it charged the account, negative when
+    it credited it. EDF credits export payments as negative electricity charges, so an export-only
+    statement is negative. Each charge and credit line is listed with its VAT."""
 
     _key = "last_statement"
     _label = "Last Statement"
@@ -124,8 +126,24 @@ class EDFEnergyLastStatement(EDFEnergyBillingSensor):
         if bill is None:
             return
         charges = bill.get("total_charges")
-        # EDF reports statement charges as negative amounts
-        self._state = _pounds(abs(charges)) if charges is not None else None
+        credits = bill.get("total_credits") or 0
+        self._state = _pounds(charges - credits) if charges is not None else None
+
+        lines = []
+        payments = []
+        for t in bill.get("transactions") or []:
+            sign = -1 if t.get("is_credit") and t.get("type") != "Payment" else 1
+            item = {
+                "title": t.get("title"),
+                "type": t.get("type"),
+                "posted_date": t.get("posted_date"),
+                "net": _pounds(sign * t["net"]) if t.get("net") is not None else None,
+                "vat": _pounds(sign * t["tax"]) if t.get("tax") is not None else None,
+                "total": _pounds(sign * t["gross"]) if t.get("gross") is not None else None,
+            }
+            # Payments are reported with the statement but aren't part of what it charges
+            (payments if t.get("type") == "Payment" else lines).append(item)
+
         self._attributes.update({
             "bill_type": bill.get("bill_type"),
             "from_date": bill.get("from_date"),
@@ -134,7 +152,13 @@ class EDFEnergyLastStatement(EDFEnergyBillingSensor):
             "payment_due_date": bill.get("payment_due_date"),
             "opening_balance": _pounds(bill.get("opening_balance")),
             "closing_balance": _pounds(bill.get("closing_balance")),
-            "credits": _pounds(abs(bill["total_credits"])) if bill.get("total_credits") is not None else None,
+            "charges": _pounds(charges),
+            "charges_before_vat": _pounds(bill.get("total_charges_net")),
+            "vat": _pounds(bill.get("total_charges_tax")),
+            "credits": _pounds(credits),
+            "is_credit": charges is not None and charges - credits < 0,
+            "lines": lines,
+            "payments": payments,
             "is_final": bill.get("is_final"),
         })
 

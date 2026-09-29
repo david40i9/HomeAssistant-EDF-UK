@@ -71,6 +71,16 @@ class EDFEnergyGasMeterReading(CoordinatorEntity, EDFEnergyGasSensor, RestoreSen
             # Every register on the reading (e.g. day and night on Economy 7 meters); the state is the first
             if result.registers:
                 self._attributes["registers"] = result.registers
+            if result.details:
+                # Where the reading came from (e.g. "Your reading", "Smart reading") and the one before it
+                self._attributes["reading_source"] = result.details.get("reading_source")
+                self._attributes["source"] = result.details.get("source")
+                previous = result.details.get("previous")
+                if previous:
+                    self._attributes["previous_reading"] = previous.get("value")
+                    self._attributes["previous_read_at"] = previous.get("read_at")
+                    self._attributes["previous_reading_source"] = previous.get("reading_source")
+                    self._attributes["usage_since_previous"] = round(result.value - previous["value"], 3)
         self._attributes = dict_to_typed_dict(self._attributes)
         super()._handle_coordinator_update()
 

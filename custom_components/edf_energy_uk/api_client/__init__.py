@@ -243,8 +243,11 @@ billing_query = '''query AccountBilling($accountNumber: String!) {
             closingBalance
             paymentDueDate
             isFinal
-            totalCharges { grossTotal }
+            totalCharges { netTotal taxTotal grossTotal }
             totalCredits { grossTotal }
+            transactions(first: 50) {
+              edges { node { __typename postedDate title isCredit amounts { net tax gross } } }
+            }
           }
         }
       }
@@ -285,6 +288,8 @@ electricity_meter_readings_query = '''query ElectricityMeterReadings($accountNum
     edges {
       node {
         readAt
+        readingSource
+        source
         registers {
           identifier
           name
@@ -301,6 +306,8 @@ gas_meter_readings_query = '''query GasMeterReadings($accountNumber: String!, $m
     edges {
       node {
         readAt
+        readingSource
+        source
         registers {
           identifier
           name
@@ -904,7 +911,21 @@ class EDFEnergyApiClient:
             "payment_due_date": bill.get("paymentDueDate"),
             "is_final": bill.get("isFinal"),
             "total_charges": (bill.get("totalCharges") or {}).get("grossTotal"),
+            "total_charges_net": (bill.get("totalCharges") or {}).get("netTotal"),
+            "total_charges_tax": (bill.get("totalCharges") or {}).get("taxTotal"),
             "total_credits": (bill.get("totalCredits") or {}).get("grossTotal"),
+            "transactions": [
+              {
+                "type": node.get("__typename"),
+                "posted_date": node.get("postedDate"),
+                "title": node.get("title"),
+                "is_credit": node.get("isCredit"),
+                "net": (node.get("amounts") or {}).get("net"),
+                "tax": (node.get("amounts") or {}).get("tax"),
+                "gross": (node.get("amounts") or {}).get("gross"),
+              }
+              for node in edges(bill.get("transactions"))
+            ],
           }
 
         rewards = [
@@ -1695,13 +1716,24 @@ class EDFEnergyApiClient:
         "read_at": read_at,
         "value": float(registers[0]["value"]),
         "registers": [{"name": r.get("name") or r.get("identifier"), "value": float(r["value"])} for r in registers],
+        # e.g. "Your reading" / CUSTOMER, "Smart reading" / SMART_METER, or an estimate
+        "reading_source": node.get("readingSource"),
+        "source": node.get("source"),
       })
 
     if not readings:
       return None
 
     readings.sort(key=lambda r: parse_datetime(r["read_at"]))
-    return readings[-1]
+    latest = readings[-1]
+    if len(readings) > 1:
+      previous = readings[-2]
+      latest["previous"] = {
+        "read_at": previous["read_at"],
+        "value": previous["value"],
+        "reading_source": previous["reading_source"],
+      }
+    return latest
 
   async def __async_read_response__(self, response, url, ignore_errors=False, accepted_error_codes=[], expected_error_codes=[], is_product_endpoint=False):
     """Reads the response, logging any errors.

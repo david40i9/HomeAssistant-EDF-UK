@@ -24,7 +24,7 @@ One set per EDF account.
 | EDF Direct Debit Amount ({account}) | sensor | GBP | Your current direct debit | `payment_day`, `status` |
 | EDF Last Payment ({account}) | sensor | GBP | Most recent payment received | `posted_date`, `title` |
 | EDF Next Payment ({account}) | sensor | GBP | Next scheduled payment | `date`, `method`, `upcoming` (next three payments) |
-| EDF Last Statement ({account}) | sensor | GBP | Charges on your most recent statement (bill) | `from_date`, `to_date`, `issued_date`, `payment_due_date`, `opening_balance`, `closing_balance`, `credits`, `is_final` |
+| EDF Last Statement ({account}) | sensor | GBP | Net amount of your most recent statement (bill): positive when it charged you, negative when it credited you (EDF credits export payments as negative electricity charges) | `lines` (each charge or credit with `net`, `vat` and `total`), `charges`, `charges_before_vat`, `vat`, `credits`, `is_credit`, `from_date`, `to_date`, `issued_date`, `payment_due_date`, `opening_balance`, `closing_balance`, `payments` |
 | EDF Suggested Direct Debit ({account}) | sensor | GBP | Direct debit EDF's payment review suggests (unknown if EDF doesn't give one) | `minimum_amount` |
 | EDF Rewards ({account}) | sensor | GBP | Total rewards on the account, such as refer-a-friend payments (0 if none) | `rewards` (date, scheme, amount, status), `referrals_created` |
 | EDF Campaigns ({account}) | sensor | | Number of EDF campaigns the account is enrolled in | `campaigns` (name, slug, start and expiry dates) |
@@ -81,7 +81,7 @@ If all the consumption sensors stay unknown, check the *Smart Meter Data Frequen
 
 | Entity | Type | Unit | What it shows | Useful attributes |
 |---|---|---|---|---|
-| EDF Electricity Meter Reading ({serial}/{mpan}) | sensor | kWh | Latest meter register reading (customer, smart or estimated). Readings EDF has quarantined as suspect are skipped | `read_at`, `registers` (every register, e.g. day and night on Economy 7 meters) |
+| EDF Electricity Meter Reading ({serial}/{mpan}) | sensor | kWh | Latest meter register reading (customer, smart or estimated). Readings EDF has quarantined as suspect are skipped | `read_at`, `registers` (every register, e.g. day and night on Economy 7 meters), `reading_source` (e.g. *Your reading*, *Smart reading*), `previous_reading`, `previous_read_at`, `usage_since_previous` |
 | EDF Electricity Previous Accumulative Consumption ({serial}/{mpan}) | sensor | kWh | Total consumption for the latest complete day. **Use this in the Energy dashboard** | `start`, `end`, `charges` (per half hour), `total` |
 | EDF Electricity Previous Accumulative Cost ({serial}/{mpan}) | sensor | GBP | Cost for that day, including standing charge | `total_without_standing_charge`, `standing_charge`, `charges` |
 | EDF Electricity Previous Peak / Off-Peak Consumption ({serial}/{mpan}) | sensor | kWh | That day's usage split by peak and off-peak rate | `is_economy_7` |
@@ -106,7 +106,7 @@ Per gas meter.
 | EDF Gas Current Rate ({serial}/{mprn}) | sensor | GBP/kWh | Current gas unit rate | `start`, `end`, `tariff`, `current_day_min_rate`, `current_day_max_rate` |
 | EDF Gas Next / Previous Rate ({serial}/{mprn}) | sensor | GBP/kWh | Next/previous different rate. Unknown on flat tariffs | `start`, `end` |
 | EDF Gas Standing Charge ({serial}/{mprn}) | sensor | GBP | Daily standing charge | `start`, `end`, `tariff_code` |
-| EDF Gas Meter Reading ({serial}/{mprn}) | sensor | m³ | Latest meter reading | `read_at`, `registers` |
+| EDF Gas Meter Reading ({serial}/{mprn}) | sensor | m³ | Latest meter reading | `read_at`, `registers`, `reading_source`, `previous_reading`, `previous_read_at`, `usage_since_previous` |
 | EDF Gas Previous Accumulative Consumption ({serial}/{mprn}) | sensor | kWh | Latest published day's usage, converted to kWh. **Use this in the Energy dashboard** | `start`, `end`, `charges`, `total` |
 | EDF Gas Previous Accumulative Consumption m³ ({serial}/{mprn}) | sensor | m³ | The same in cubic metres | `charges`, `total` |
 | EDF Gas Previous Accumulative Cost ({serial}/{mprn}) | sensor | GBP | Cost for that day including standing charge | `total_without_standing_charge`, `standing_charge` |

@@ -2,6 +2,15 @@
 
 Version history of this fork. Versions are shown in Home Assistant under the integration's details. Credits in brackets name the people whose fixes, reports or findings each change is based on. For the reasoning behind each fix, see [FORK_CHANGES.md](FORK_CHANGES.md); for what every entity does, see [docs/ENTITIES.md](docs/ENTITIES.md).
 
+## 2.4.0 (2026-09-29)
+
+### Fixed
+- **Last Statement** turned every statement into a positive amount, so a statement that credited you (EDF credits export payments as negative electricity charges) looked like a charge. It now shows the net amount with its sign: positive when you were charged, negative when you were credited.
+
+### Added
+- **Last Statement** lists each line (for example electricity and gas) with the amount before VAT, the VAT and the total, plus the statement's VAT total.
+- **Meter Reading** sensors show where the reading came from (`reading_source`, e.g. *Your reading* or *Smart reading*), the previous reading, and the usage between the two.
+
 ## 2.3.0 (2026-09-25)
 
 ### Added

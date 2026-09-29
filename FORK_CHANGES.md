@@ -110,6 +110,11 @@ The previous consumption coordinator (from Bobby5291's version) asked for yester
 - **Smart Meter Data Frequency** from `smartMeterDataPreferences`. Accounts without half-hourly consent get no half-hourly consumption, which otherwise looks like a bug.
 - **Campaigns** from `account.campaigns`.
 
+### Statement lines and reading sources
+
+- **Last Statement sign.** EDF's `totalCharges` is negative on a statement that credits the account (export payments are posted as negative electricity charges, with no VAT). The sensor used to take the absolute value, so a £6.90 export credit appeared as a £6.90 charge. It now keeps the sign, and lists the statement's `transactions` (title, amount before VAT, VAT and total) so a bill can be shown line by line.
+- **Reading source.** `electricityMeterReadings` / `gasMeterReadings` return `readingSource` ("Your reading", "Smart reading", …) and `source` (CUSTOMER, SMART_METER, …). The reading sensors now show them, with the previous reading and the usage in between. This makes it obvious when a smart meter has stopped sending readings and the latest one is a manual reading.
+
 ### Thanks
 
 - **@Bobby5291** for the original EDF UK integration and the credentials fix in PR #32.
