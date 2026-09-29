@@ -16,9 +16,9 @@ A custom Home Assistant integration for retrieving and monitoring EDF UK smart m
 
 ![Tariff cards, today's and tomorrow's Go Electric unit rates with a "Now" marker, and the latest complete day's half-hourly import and export](docs/images/rates.png)
 
-![Account page: balance and direct debit cards, 30-day balance chart, the latest statement broken down by electricity and gas with VAT, payments and upcoming direct debits, tariffs and contract end dates, and meter readings showing where each came from (amounts blurred)](docs/images/account.png)
+![Account page: balance and direct debit cards, 30-day balance chart, the latest statement broken down by electricity and gas with VAT, payments and upcoming direct debits, tariffs and contract end dates, rewards and perks (Flextras, Power Perks, free electricity windows), and meter readings showing where each came from (amounts blurred)](docs/images/account.png)
 
-*Example dashboard built from this integration's sensors (money figures blurred). The cards are in [docs/DASHBOARD_EXAMPLES.md](docs/DASHBOARD_EXAMPLES.md).*
+*Example dashboard built from this integration's sensors (money figures blurred). The cards are in [docs/DASHBOARD_EXAMPLES.md](docs/DASHBOARD_EXAMPLES.md). The Flextras, Power Perks and free electricity details come from [stevekirtley's integration](https://github.com/stevekirtley/HomeAssistant-EDFEnergy) running alongside.*
 
 This is a personal fork of [Bobby5291/HomeAssistant-EDF-UK](https://github.com/Bobby5291/HomeAssistant-EDF-UK), with fixes for authentication, rates, meter readings, payments and several upstream issues. See [CHANGELOG.md](CHANGELOG.md) for the version history and [FORK_CHANGES.md](FORK_CHANGES.md) for the details behind each fix.
 
