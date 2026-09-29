@@ -16,7 +16,7 @@ A custom Home Assistant integration for retrieving and monitoring EDF UK smart m
 
 ![Tariff cards, today's and tomorrow's Go Electric unit rates with a "Now" marker, and the latest complete day's half-hourly import and export](docs/images/rates.png)
 
-![Account balance, 30-day balance chart and the latest statement broken down by electricity and gas with VAT (amounts blurred)](docs/images/account.png)
+![Account page: balance and direct debit cards, 30-day balance chart, the latest statement broken down by electricity and gas with VAT, payments and upcoming direct debits, tariffs and contract end dates, and meter readings showing where each came from (amounts blurred)](docs/images/account.png)
 
 *Example dashboard built from this integration's sensors (money figures blurred). The cards are in [docs/DASHBOARD_EXAMPLES.md](docs/DASHBOARD_EXAMPLES.md).*
 
