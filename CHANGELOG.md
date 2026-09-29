@@ -10,6 +10,7 @@ Version history of this fork. Versions are shown in Home Assistant under the int
 ### Added
 - **Last Statement** lists each line (for example electricity and gas) with the amount before VAT, the VAT and the total, plus the statement's VAT total.
 - **Meter Reading** sensors show where the reading came from (`reading_source`, e.g. *Your reading* or *Smart reading*), the previous reading, and the usage between the two.
+- [docs/DASHBOARD_EXAMPLES.md](docs/DASHBOARD_EXAMPLES.md): ready-made dashboard cards for the latest statement, meter readings and upcoming payments.
 
 ## 2.3.0 (2026-09-25)
 

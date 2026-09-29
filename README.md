@@ -20,14 +20,14 @@ This is a personal fork of [Bobby5291/HomeAssistant-EDF-UK](https://github.com/B
 
 ## Features
 
-- EDF UK account integration: balances, direct debit (current, next payment and EDF's suggested amount), last payment, last statement, rewards, tariffs and contract end dates
+- EDF UK account integration: balances, direct debit (current, next payment and EDF's suggested amount), last payment, your latest statement line by line with VAT, rewards, tariffs and contract end dates
 - Electricity (import and export) and gas rates, standing charges and cost tracking, using your direct debit prices where they apply, and your account's own prices for tariffs EDF doesn't publish
-- Meter register readings for electricity (import and export) and gas, including every register on multi-rate meters
+- Meter register readings for electricity (import and export) and gas, including every register on multi-rate meters, where each reading came from (your reading, smart or estimated) and the usage since the one before
 - Previous-day consumption and cost, import **and export**, for the Home Assistant Energy Dashboard (return to grid included)
 - Diagnostics such as your smart meter data frequency, which explains missing half-hourly data
 - EDF Smart Charging (EV) support (not yet widely tested)
 
-See **[docs/ENTITIES.md](docs/ENTITIES.md)** for every sensor, control, event and service the integration exposes, what each one means, and how to set up the Energy dashboard.
+See **[docs/ENTITIES.md](docs/ENTITIES.md)** for every sensor, control, event and service the integration exposes, what each one means, and how to set up the Energy dashboard. **[docs/DASHBOARD_EXAMPLES.md](docs/DASHBOARD_EXAMPLES.md)** has ready-made cards for your latest bill, meter readings and upcoming payments.
 
 ---
 

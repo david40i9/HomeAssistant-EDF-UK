@@ -1,6 +1,6 @@
 # Fork changes
 
-This fork of [Bobby5291/HomeAssistant-EDF-UK](https://github.com/Bobby5291/HomeAssistant-EDF-UK) is based on upstream `main` (the `v1.9.9b` beta plus the NOTICE file) with extra fixes on top. Fork version: **2.3.0** (shown in Home Assistant under the integration's details). See [CHANGELOG.md](CHANGELOG.md) for the version-by-version history.
+This fork of [Bobby5291/HomeAssistant-EDF-UK](https://github.com/Bobby5291/HomeAssistant-EDF-UK) is based on upstream `main` (the `v1.9.9b` beta plus the NOTICE file) with extra fixes on top. Fork version: **2.4.0** (shown in Home Assistant under the integration's details). See [CHANGELOG.md](CHANGELOG.md) for the version-by-version history.
 
 ## 2.0.0: new internal name `edf_energy_uk`
 
@@ -80,6 +80,7 @@ Found by reading the issues and code of [stevekirtley's EDF integration](https:/
 ### Documentation
 
 - **[docs/ENTITIES.md](docs/ENTITIES.md)** lists every entity, attribute, event, service and repair, generated from the code, plus Energy dashboard setup.
+- **[docs/DASHBOARD_EXAMPLES.md](docs/DASHBOARD_EXAMPLES.md)** has copy-and-paste cards for the latest statement, meter reading sources and upcoming payments.
 
 ### Recorder
 
