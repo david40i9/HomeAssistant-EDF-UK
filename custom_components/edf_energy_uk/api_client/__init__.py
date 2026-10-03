@@ -492,6 +492,8 @@ class EDFEnergyApiClient:
     self._export_mpans = {}
     # Tariff code -> (account number, MPAN/MPRN, is export), for pricing from applicableRates
     self._tariff_supply_points = {}
+    # Tariff code -> (VAT ratio, valid until), worked out from the agreement price
+    self._vat_multipliers = {}
     # Whether to use direct debit prices from the product endpoints. Updated from the account's
     # direct debit status when it loads; defaults to direct debit as most accounts pay that way.
     self._favour_direct_debit_rates = True
@@ -1358,19 +1360,8 @@ class EDFEnergyApiClient:
       return rates
     return self.__agreement_rates(tariff_code, period_from, period_to)
 
-  async def __async_applicable_rates(self, tariff_code: str, period_from: datetime, period_to: datetime):
-    """30 minute rates from the account's applicableRates, or None if unavailable.
-
-    These are the prices EDF applies to this account for any period, so they also cover hidden,
-    export and day/night tariffs. EDF returns them excluding VAT; import and gas prices have 5%
-    VAT added, export payments don't carry VAT.
-    """
-    supply = self._tariff_supply_points.get(tariff_code)
-    if supply is None or period_from is None or period_to is None:
-      return None
-    account_id, mpxn, is_export = supply
-    vat_multiplier = 1.0 if is_export else 1.05
-
+  async def __async_fetch_applicable_rates(self, account_id: str, mpxn: str, period_from: datetime, period_to: datetime):
+    """Raw applicableRates for a meter point: a list of (value excluding VAT, valid from, valid to)."""
     items = []
     client = self._create_client_session()
     url = f'{self._base_url}/v1/graphql/'
@@ -1390,20 +1381,83 @@ class EDFEnergyApiClient:
       connection = ((body or {}).get("data") or {}).get("applicableRates") or {}
       for edge in connection.get("edges") or []:
         node = edge.get("node") or {}
-        if node.get("value") is None:
-          continue
-        items.append({
-          "value_inc_vat": round(float(node["value"]) * vat_multiplier, 4),
-          "valid_from": node.get("validFrom"),
-          "valid_to": node.get("validTo"),
-        })
+        if node.get("value") is not None:
+          items.append((float(node["value"]), node.get("validFrom"), node.get("validTo")))
       page_info = connection.get("pageInfo") or {}
       if not page_info.get("hasNextPage") or page_info.get("endCursor") is None:
         break
       after = page_info["endCursor"]
+    return items
 
-    if not items:
+  async def __async_vat_multiplier(self, tariff_code: str, account_id: str, mpxn: str, is_export: bool):
+    """Ratio of the price including VAT to applicableRates' price excluding VAT, for the current period.
+
+    Taken from the account agreement (which EDF publishes including VAT) rather than assumed, because
+    the rate changes: electricity is zero rated from October 2026 to April 2027 while gas stays at 5%.
+    Approach from stevekirtley/HomeAssistant-EDFEnergy 19.2.3 (MIT). Export payments carry no VAT.
+    """
+    if is_export:
+      return 1.0
+
+    current = now()
+    cached = self._vat_multipliers.get(tariff_code)
+    if cached is not None and cached[1] > current:
+      return cached[0]
+
+    def as_dt(value):
+      if value is None:
+        return None
+      return as_utc(value if isinstance(value, datetime) else parse_datetime(value))
+
+    info = self._agreement_rates.get(tariff_code) or {}
+    including_vat = None
+    if info.get("unit_rate") is not None:
+      including_vat = float(info["unit_rate"])
+    else:
+      for band in info.get("unit_rates") or []:
+        band_from, band_to = as_dt(band.get("valid_from")), as_dt(band.get("valid_to"))
+        if band_from is not None and band_from <= current and (band_to is None or current < band_to):
+          including_vat = float(band["value"])
+          break
+
+    ratio = None
+    if including_vat is not None:
+      for value, valid_from, valid_to in await self.__async_fetch_applicable_rates(account_id, mpxn, current, current + timedelta(minutes=30)):
+        item_from, item_to = as_dt(valid_from), as_dt(valid_to)
+        if value > 0 and (item_from is None or item_from <= current) and (item_to is None or current < item_to):
+          candidate = round(including_vat / value, 3)
+          # Guard against comparing mismatched prices: UK domestic energy VAT is 0%, 5% or 20%
+          if 0.99 <= candidate <= 1.21:
+            ratio = candidate
+          break
+
+    if ratio is None:
+      _LOGGER.debug(f'Could not work out VAT for {tariff_code} from the agreement - assuming 5%')
+      return 1.05
+
+    self._vat_multipliers[tariff_code] = (ratio, current + timedelta(hours=6))
+    return ratio
+
+  async def __async_applicable_rates(self, tariff_code: str, period_from: datetime, period_to: datetime):
+    """30 minute rates from the account's applicableRates, or None if unavailable.
+
+    These are the prices EDF applies to this account for any period, so they also cover hidden,
+    export and day/night tariffs. EDF returns them excluding VAT, so the current VAT ratio (from the
+    account agreement) is applied. A period on the other side of a VAT change is priced at today's rate.
+    """
+    supply = self._tariff_supply_points.get(tariff_code)
+    if supply is None or period_from is None or period_to is None:
       return None
+    account_id, mpxn, is_export = supply
+
+    raw = await self.__async_fetch_applicable_rates(account_id, mpxn, period_from, period_to)
+    if not raw:
+      return None
+    vat_multiplier = await self.__async_vat_multiplier(tariff_code, account_id, mpxn, is_export)
+    items = [
+      {"value_inc_vat": round(value * vat_multiplier, 4), "valid_from": valid_from, "valid_to": valid_to}
+      for value, valid_from, valid_to in raw
+    ]
     results = rates_to_thirty_minute_increments({"results": items}, period_from, period_to, tariff_code)
     return results if results else None
 
