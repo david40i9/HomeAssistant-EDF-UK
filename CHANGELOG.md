@@ -2,7 +2,7 @@
 
 Version history of this fork. Versions are shown in Home Assistant under the integration's details. Credits in brackets name the people whose fixes, reports or findings each change is based on. For the reasoning behind each fix, see [FORK_CHANGES.md](FORK_CHANGES.md); for what every entity does, see [docs/ENTITIES.md](docs/ENTITIES.md).
 
-## Unreleased
+## 2.4.1 (2026-10-03)
 
 ### Fixed
 - Tariffs priced from the account's applicable rates (export, temporarily hidden and day/night tariffs) assumed 5% VAT on electricity. Electricity is zero rated from October 2026 to April 2027, so those prices came out 5% too high. The VAT rate is now worked out from the price on your account agreement, which EDF publishes including VAT. (Approach from @stevekirtley's integration, 19.2.3, [#39](https://github.com/stevekirtley/HomeAssistant-EDFEnergy/issues/39).)
