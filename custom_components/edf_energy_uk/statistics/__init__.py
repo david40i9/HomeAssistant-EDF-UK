@@ -1,9 +1,10 @@
 # Bobby5291 2026 — EDF Energy / Kraken API — HA Statistics helpers
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from homeassistant.core import HomeAssistant
+from homeassistant.util.dt import as_local
 from homeassistant.components.recorder import get_instance
 from homeassistant.components.recorder.models import StatisticData
 from homeassistant.components.recorder.statistics import statistics_during_period
@@ -28,6 +29,33 @@ async def async_get_last_statistic_sum(hass: HomeAssistant, before: datetime, st
     if statistic_id in results and results[statistic_id]:
         return results[statistic_id][-1]["sum"] or 0
     return 0
+
+
+async def async_get_statistic_hours_by_day(hass: HomeAssistant, statistic_id: str, start: datetime, end: datetime) -> dict:
+    """How many hourly statistics exist for each local day between *start* and *end*.
+
+    Used to spot days missing from the Energy dashboard, for example after the integration was down.
+    """
+    results = await get_instance(hass).async_add_executor_job(
+        statistics_during_period,
+        hass,
+        start,
+        end,
+        {statistic_id},
+        "hour",
+        None,
+        {"sum"},
+    )
+    counts = {}
+    for row in results.get(statistic_id, []) or []:
+        row_start = row.get("start")
+        if isinstance(row_start, (int, float)):
+            row_start = datetime.fromtimestamp(row_start, tz=timezone.utc)
+        if row_start is None:
+            continue
+        day = as_local(row_start).date()
+        counts[day] = counts.get(day, 0) + 1
+    return counts
 
 
 def build_consumption_statistics(

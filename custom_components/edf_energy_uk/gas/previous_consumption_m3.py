@@ -114,7 +114,7 @@ class EDFEnergyPreviousAccumulativeGasConsumptionM3(CoordinatorEntity, EDFEnergy
         from homeassistant.util.dt import now as ha_now
         # Convert consumption records to m³ for statistics
         m3_records = [
-            {**c, "consumption": kwh_to_m3(c["consumption"])} for c in consumption_data
+            {**c, "consumption": kwh_to_m3(c["consumption"])} for c in result.statistics_consumption
         ]
         self._hass.async_create_task(
             async_import_consumption_statistics(
@@ -123,7 +123,7 @@ class EDFEnergyPreviousAccumulativeGasConsumptionM3(CoordinatorEntity, EDFEnergy
                 gas_consumption_statistic_id(self._serial_number, self._mprn, is_kwh=False),
                 gas_consumption_statistic_name(self._serial_number, self._mprn, is_kwh=False),
                 m3_records,
-                rate_data,
+                result.statistics_rates,
                 UnitOfVolume.CUBIC_METERS,
             )
         )

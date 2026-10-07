@@ -2,6 +2,14 @@
 
 Version history of this fork. Versions are shown in Home Assistant under the integration's details. Credits in brackets name the people whose fixes, reports or findings each change is based on. For the reasoning behind each fix, see [FORK_CHANGES.md](FORK_CHANGES.md); for what every entity does, see [docs/ENTITIES.md](docs/ENTITIES.md).
 
+## Unreleased
+
+### Fixed
+- **The integration stayed down after a restart if EDF couldn't be reached at that moment** (for example while the internet or DNS was still coming up). Home Assistant doesn't retry an integration whose setup crashes, so it stayed unavailable until the next restart; on one install that was 2½ days. Connection failures during setup now count as "not ready yet", so Home Assistant retries, and the saved account details are used in the meantime.
+
+### Added
+- **Missing days are filled in on the Energy dashboard.** If a day in the last week has no statistics (for example because the integration was down), it's imported along with the days after it, so their running totals stay correct. Previously only the latest day was ever imported, so a missed day stayed missing for good. (Related to Octopus Energy [#1851](https://github.com/BottlecapDave/HomeAssistant-OctopusEnergy/issues/1851).)
+
 ## 2.4.1 (2026-10-03)
 
 ### Fixed

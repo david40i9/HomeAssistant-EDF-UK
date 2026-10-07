@@ -171,8 +171,8 @@ class EDFEnergyPreviousAccumulativeGasConsumption(CoordinatorEntity, EDFEnergyGa
                     ha_now(),
                     gas_consumption_statistic_id(self._serial_number, self._mprn, is_kwh=True),
                     gas_consumption_statistic_name(self._serial_number, self._mprn, is_kwh=True),
-                    consumption_data,
-                    rate_data,
+                    result.statistics_consumption,
+                    result.statistics_rates,
                     UnitOfEnergy.KILO_WATT_HOUR,
                 )
             )
@@ -287,8 +287,8 @@ class EDFEnergyPreviousAccumulativeGasCost(CoordinatorEntity, EDFEnergyGasSensor
                     ha_now(),
                     gas_cost_statistic_id(self._serial_number, self._mprn),
                     gas_cost_statistic_name(self._serial_number, self._mprn),
-                    consumption_data,
-                    rate_data,
+                    result.statistics_consumption,
+                    result.statistics_rates,
                 )
             )
         else:

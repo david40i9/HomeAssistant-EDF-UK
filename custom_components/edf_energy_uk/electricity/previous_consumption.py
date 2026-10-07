@@ -172,8 +172,8 @@ class EDFEnergyPreviousAccumulativeElectricityConsumption(CoordinatorEntity, EDF
                     ha_now(),
                     electricity_consumption_statistic_id(self._serial_number, self._mpan, self._is_export),
                     electricity_consumption_statistic_name(self._serial_number, self._mpan, self._is_export),
-                    consumption_data,
-                    rate_data,
+                    result.statistics_consumption,
+                    result.statistics_rates,
                     _UOE.KILO_WATT_HOUR,
                 )
             )
@@ -288,8 +288,8 @@ class EDFEnergyPreviousAccumulativeElectricityCost(CoordinatorEntity, EDFEnergyE
                     ha_now(),
                     electricity_cost_statistic_id(self._serial_number, self._mpan, self._is_export),
                     electricity_cost_statistic_name(self._serial_number, self._mpan, self._is_export),
-                    consumption_data,
-                    rate_data,
+                    result.statistics_consumption,
+                    result.statistics_rates,
                 )
             )
         else:

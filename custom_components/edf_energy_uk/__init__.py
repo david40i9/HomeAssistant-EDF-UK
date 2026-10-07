@@ -1,7 +1,10 @@
 # Modified from HomeAssistant-OctopusEnergy by BottlecapDave (MIT)
 # Modified by Bobby5291 2026 — adapted for EDF Energy / Kraken API
 
+import asyncio
 import logging
+
+import aiohttp
 import re
 from datetime import datetime, timedelta
 
@@ -209,7 +212,10 @@ async def async_setup_dependencies(hass, config):
         ir.async_delete_issue(hass, DOMAIN, REPAIR_INVALID_CREDENTIALS.format(account_id))
 
     except Exception as e:
-        if not isinstance(e, ApiException):
+        # A connection failure (no internet or DNS yet, EDF unreachable) must not count as a crash: Home
+        # Assistant doesn't retry an entry whose setup raised an unexpected error, so the integration would
+        # stay down until the next restart. Treat it like an EDF server error instead.
+        if not isinstance(e, (ApiException, aiohttp.ClientError, asyncio.TimeoutError, OSError)):
             raise
 
         if isinstance(e, AuthenticationException):
@@ -227,9 +233,10 @@ async def async_setup_dependencies(hass, config):
             )
         else:
             account_info = await async_load_cached_account(hass, account_id)
+            reason = api_exception_to_string(e) if isinstance(e, ApiException) else f"{type(e).__name__}: {e}"
             if account_info is None:
                 raise ConfigEntryNotReady(
-                    f"Failed to retrieve EDF account info and no cache available: {api_exception_to_string(e)}"
+                    f"Failed to retrieve EDF account info and no cache available: {reason}"
                 )
             _LOGGER.warning(
                 f"Using cached account information for {account_id} — will retry automatically."

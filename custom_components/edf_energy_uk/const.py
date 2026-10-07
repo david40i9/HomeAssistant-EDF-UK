@@ -10,6 +10,8 @@ EDF_BASE_URL = "https://api.edfgb-kraken.energy"
 REFRESH_RATE_IN_MINUTES_ACCOUNT = 60
 REFRESH_RATE_IN_MINUTES_RATES = 30
 REFRESH_RATE_IN_MINUTES_PREVIOUS_CONSUMPTION = 60
+# How far back days missing from the long-term statistics are filled in (e.g. after an outage)
+STATISTICS_BACKFILL_DAYS = 7
 REFRESH_RATE_IN_MINUTES_STANDING_CHARGE = 60
 
 # Config flow keys
