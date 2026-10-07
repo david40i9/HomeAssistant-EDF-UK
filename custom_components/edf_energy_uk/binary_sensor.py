@@ -10,6 +10,7 @@ from .account.balance import (
     EDFEnergyDirectDebitNeedsReview,
 )
 from .account.contract import EDFEnergyCanRenewTariff
+from .account.flextras import EDFEnergyFlextrasMember, EDFEnergyWeekendSaverAvailable, EDFEnergyFreeElectricityActive
 from .electricity.target_rate import EDFEnergyElectricityTargetRateBinarySensor
 from .electricity.tomorrow_rates import EDFEnergyElectricityNextDayRatesAvailable
 from .electricity.off_peak import EDFEnergyElectricityOffPeak
@@ -20,6 +21,7 @@ from .const import (
     DATA_ACCOUNT,
     DATA_ACCOUNT_COORDINATOR,
     DATA_ELECTRICITY_RATES_COORDINATOR_KEY,
+    DATA_FLEXTRAS_COORDINATOR_KEY,
     DATA_INTELLIGENT_COORDINATOR_KEY,
     DATA_INTELLIGENT_DEVICE_KEY,
     DOMAIN,
@@ -43,6 +45,12 @@ async def async_setup_entry(hass: HomeAssistant, entry, async_add_entities):
         EDFEnergyDirectDebitNeedsReview(hass, account_coordinator, account_id),
         EDFEnergyCanRenewTariff(hass, account_coordinator, account_id),
     ]
+
+    flextras_coordinator = hass.data[DOMAIN][account_id].get(DATA_FLEXTRAS_COORDINATOR_KEY.format(account_id))
+    if flextras_coordinator is not None:
+        entities.append(EDFEnergyFlextrasMember(hass, flextras_coordinator, account_id))
+        entities.append(EDFEnergyWeekendSaverAvailable(hass, flextras_coordinator, account_id))
+        entities.append(EDFEnergyFreeElectricityActive(hass, flextras_coordinator, account_id))
 
     # Per-meter binary sensors (target rates + tomorrow rates available)
     account_result = hass.data[DOMAIN][account_id].get(DATA_ACCOUNT)

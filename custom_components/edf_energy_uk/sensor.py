@@ -73,6 +73,7 @@ from .account.contract import (
     EDFEnergyGasContractEnd,
 )
 from .account.payment import EDFEnergyDirectDebitAmount, EDFEnergyLastPayment
+from .account.flextras import EDFEnergyFlextrasHoursLeft, EDFEnergyNextFreeElectricity
 from .account.billing import (
     EDFEnergyNextPayment,
     EDFEnergyLastStatement,
@@ -97,6 +98,7 @@ from .const import (
     DATA_ANNUAL_ELECTRICITY_CONSUMPTION_COORDINATOR_KEY,
     DATA_ANNUAL_GAS_CONSUMPTION_COORDINATOR_KEY,
     DATA_ACCOUNT_TRANSACTIONS_COORDINATOR_KEY,
+    DATA_FLEXTRAS_COORDINATOR_KEY,
     DATA_ELECTRICITY_COST_TRACKER_COORDINATOR_KEY,
     DATA_ELECTRICITY_METER_READINGS_COORDINATOR_KEY,
     DATA_ELECTRICITY_RATES_COORDINATOR_KEY,
@@ -146,6 +148,11 @@ async def async_setup_entry(hass: HomeAssistant, entry, async_add_entities):
     transactions_coordinator = hass.data[DOMAIN][account_id].get(transactions_coordinator_key)
     if transactions_coordinator is not None:
         entities.append(EDFEnergyLastPayment(hass, transactions_coordinator, account_id))
+
+    flextras_coordinator = hass.data[DOMAIN][account_id].get(DATA_FLEXTRAS_COORDINATOR_KEY.format(account_id))
+    if flextras_coordinator is not None:
+        entities.append(EDFEnergyFlextrasHoursLeft(hass, flextras_coordinator, account_id))
+        entities.append(EDFEnergyNextFreeElectricity(hass, flextras_coordinator, account_id))
         entities.append(EDFEnergyNextPayment(hass, transactions_coordinator, account_id))
         entities.append(EDFEnergyLastStatement(hass, transactions_coordinator, account_id))
         entities.append(EDFEnergySuggestedDirectDebit(hass, transactions_coordinator, account_id))

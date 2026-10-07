@@ -18,6 +18,7 @@ from homeassistant.util.dt import utcnow, as_local
 from homeassistant.const import EVENT_HOMEASSISTANT_STOP
 
 from .api_client import ApiException, AuthenticationException, EDFEnergyApiClient
+from .coordinators.flextras import async_setup_flextras_coordinator
 from .coordinators.intelligent import async_setup_intelligent_coordinator
 from .coordinators.account import AccountCoordinatorResult, async_setup_account_info_coordinator
 from .coordinators.electricity_rates import async_setup_electricity_rates_coordinator
@@ -342,6 +343,11 @@ async def async_setup_dependencies(hass, config):
     # -------------------------------------------------------------------------
     transactions_coordinator = await async_setup_account_transactions_coordinator(hass, account_id, client)
     await transactions_coordinator.async_config_entry_first_refresh()
+
+    # Flextras (free hours). async_refresh rather than first_refresh: an account that never joined,
+    # or EDF's app endpoints being unavailable, must not stop the rest of the integration loading.
+    flextras_coordinator = await async_setup_flextras_coordinator(hass, account_id, client)
+    await flextras_coordinator.async_refresh()
 
     # -------------------------------------------------------------------------
     # Intelligent / EV coordinator — optional, only if account has a SmartFlex device

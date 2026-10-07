@@ -70,6 +70,12 @@ annual_gas_consumption_query = '''query AnnualGasConsumption($mprn: String!) {
 
 account_query = '''query {{
   account(accountNumber: "{account_id}") {{
+    properties {{
+      id
+      occupancyPeriods {{
+        effectiveTo
+      }}
+    }}
     balance
     overdueBalance
     projectedBalance
@@ -811,6 +817,15 @@ class EDFEnergyApiClient:
             "should_review_payments": account.get("shouldReviewPayments"),
             "recommended_balance_adjustment": account.get("recommendedBalanceAdjustment"),
             "can_renew_tariff": account.get("canRenewTariff"),
+            # Properties currently occupied; the Flextras and Weekend Saver endpoints are per property
+            "property_ids": [
+              str(prop["id"]) for prop in (account.get("properties") or [])
+              if prop.get("id") is not None and (
+                not prop.get("occupancyPeriods")
+                or any(period.get("effectiveTo") is None or as_utc(parse_datetime(period["effectiveTo"])) > now()
+                       for period in prop["occupancyPeriods"])
+              )
+            ],
             "direct_debit_status": account["directDebitInstructions"]["edges"][0]["node"].get("status") if account.get("directDebitInstructions") and account["directDebitInstructions"].get("edges") else None,
             "direct_debit_amount": account["paymentSchedules"]["edges"][0]["node"].get("paymentAmount") if account.get("paymentSchedules") and account["paymentSchedules"].get("edges") else None,
             "direct_debit_payment_day": account["paymentSchedules"]["edges"][0]["node"].get("paymentDay") if account.get("paymentSchedules") and account["paymentSchedules"].get("edges") else None,
@@ -962,6 +977,51 @@ class EDFEnergyApiClient:
     except TimeoutError:
       _LOGGER.warning(f'Failed to connect. Timeout of {self._timeout} exceeded.')
       raise TimeoutException()
+
+  async def _async_get_edf_web_json(self, url: str, context: str):
+    """GET an edfenergy.com endpoint used by EDF's app, authenticated with the Kraken token.
+
+    Returns the decoded JSON, or None if the endpoint has nothing for this account (404) or the
+    request failed. Approach from stevekirtley/HomeAssistant-EDFEnergy (MIT).
+    """
+    await self.async_refresh_token()
+    try:
+      client = self._create_client_session()
+      headers = {"Authorization": self._graphql_token, "Accept": "application/json"}
+      async with client.get(url, headers=headers) as response:
+        if response.status == 200:
+          return await response.json(content_type=None)
+        if response.status != 404:
+          body = await response.text()
+          _LOGGER.debug(f'{context} returned HTTP {response.status}: {body[:300]}')
+        return None
+    except TimeoutError:
+      _LOGGER.warning(f'Failed to connect. Timeout of {self._timeout} exceeded.')
+      raise TimeoutException()
+
+  async def async_get_flextras_status(self, account_id: str):
+    """Flextras registration: registrationDate, optedOut, bonusHoursAwarded, claimedSignUpBonusHours,
+    tasteCardActivationDate and powerPerksSignUpDate. None if the account never joined."""
+    return await self._async_get_edf_web_json(
+      f'https://edfenergy.com/support/cus-event/api/flextras/status/{account_id}', 'Flextras status')
+
+  async def async_get_flextras_hours_screen(self, account_id: str, property_id: str):
+    """The Flextras hours screen: booked hours, hours left and their expiry."""
+    return await self._async_get_edf_web_json(
+      f'https://www.edfenergy.com/support/energyhub/api/weekend-saver/v1/{account_id}/{property_id}/ui/hours',
+      'Flextras hours')
+
+  async def async_get_flextras_bookable_days(self, account_id: str, property_id: str):
+    """The days currently on offer for booking free hours."""
+    return await self._async_get_edf_web_json(
+      f'https://www.edfenergy.com/support/energyhub/api/weekend-saver/v1/{account_id}/{property_id}/ui/hours/select-days',
+      'Flextras bookable days')
+
+  async def async_get_weekend_saver_challenges(self, account_id: str, property_id: str):
+    """The Weekend Saver screen: whether the account can sign up, and why not."""
+    return await self._async_get_edf_web_json(
+      f'https://www.edfenergy.com/support/energyhub/api/weekend-saver/v1/{account_id}/{property_id}/ui/challenges',
+      'Weekend Saver challenges')
 
   async def async_get_electricity_meter_readings(self, account_id: str, mpan: str, serial_number: str):
     """Get the latest electricity meter register reading via GraphQL."""

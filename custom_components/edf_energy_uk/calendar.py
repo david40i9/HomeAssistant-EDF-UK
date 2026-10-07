@@ -10,8 +10,10 @@ from homeassistant.util.dt import now as ha_now
 
 from .intelligent import EDFEnergyIntelligentDevice
 from .coordinators.intelligent import IntelligentCoordinatorResult
+from .account.flextras import EDFEnergyFreeElectricityCalendar
 from .const import (
     CONFIG_ACCOUNT_ID,
+    DATA_FLEXTRAS_COORDINATOR_KEY,
     DATA_INTELLIGENT_COORDINATOR_KEY,
     DATA_INTELLIGENT_DEVICE_KEY,
     DOMAIN,
@@ -25,20 +27,21 @@ async def async_setup_entry(hass: HomeAssistant, entry, async_add_entities):
     config = dict(entry.data)
     account_id = config[CONFIG_ACCOUNT_ID]
 
+    entities = []
+
+    flextras_coordinator = hass.data[DOMAIN][account_id].get(DATA_FLEXTRAS_COORDINATOR_KEY.format(account_id))
+    if flextras_coordinator is not None:
+        entities.append(EDFEnergyFreeElectricityCalendar(hass, flextras_coordinator, account_id))
+
     device_info = hass.data[DOMAIN][account_id].get(DATA_INTELLIGENT_DEVICE_KEY.format(account_id))
-    if device_info is None:
-        return
+    if device_info is not None:
+        coordinator = hass.data[DOMAIN][account_id].get(DATA_INTELLIGENT_COORDINATOR_KEY.format(device_info["id"]))
+        if coordinator is not None:
+            entities.append(EDFEnergyIntelligentPlannedDispatchesCalendar(hass, coordinator, account_id, device_info))
+            entities.append(EDFEnergyIntelligentCompletedDispatchesCalendar(hass, coordinator, account_id, device_info))
 
-    device_id = device_info["id"]
-    coordinator_key = DATA_INTELLIGENT_COORDINATOR_KEY.format(device_id)
-    coordinator = hass.data[DOMAIN][account_id].get(coordinator_key)
-    if coordinator is None:
-        return
-
-    async_add_entities([
-        EDFEnergyIntelligentPlannedDispatchesCalendar(hass, coordinator, account_id, device_info),
-        EDFEnergyIntelligentCompletedDispatchesCalendar(hass, coordinator, account_id, device_info),
-    ])
+    if entities:
+        async_add_entities(entities)
 
 
 def _dispatch_to_event(dispatch: dict, summary: str) -> CalendarEvent:

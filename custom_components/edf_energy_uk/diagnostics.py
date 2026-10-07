@@ -117,6 +117,10 @@ def _redact_account_info(account_info_raw: dict | None):
         mappings[account_info["id"]] = "A"
         account_info["id"] = "A"
 
+    # Property ids identify the home; only how many there are is useful for debugging
+    if "property_ids" in account_info:
+        account_info["property_ids"] = len(account_info.get("property_ids") or [])
+
     for point in account_info.get("electricity_meter_points", []) or []:
         for meter in point.get("meters", []):
             sn = str(meter.get("serial_number", ""))
