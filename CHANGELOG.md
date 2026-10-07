@@ -8,6 +8,7 @@ Version history of this fork. Versions are shown in Home Assistant under the int
 - **The integration stayed down after a restart if EDF couldn't be reached at that moment** (for example while the internet or DNS was still coming up). Home Assistant doesn't retry an integration whose setup crashes, so it stayed unavailable until the next restart; on one install that was 2½ days. Connection failures during setup now count as "not ready yet", so Home Assistant retries, and the saved account details are used in the meantime.
 
 ### Added
+- **Flextras.** Your membership (with Power Perks and Tastecard), free hours left and booked, when unused hours expire, the days you can book, and whether Weekend Saver is open to you. Your booked free hours also appear as a **free electricity calendar**, a **free electricity active** sensor and a **next free electricity** sensor, ready for automations. Read-only: book and change hours in the EDF app. (Ported from @stevekirtley's integration, 19.2.4–19.2.6.) Power Perks session times aren't included: EDF only announces those by text message.
 - **Missing days are filled in on the Energy dashboard.** If a day in the last week has no statistics (for example because the integration was down), it's imported along with the days after it, so their running totals stay correct. Previously only the latest day was ever imported, so a missed day stayed missing for good. (Related to Octopus Energy [#1851](https://github.com/BottlecapDave/HomeAssistant-OctopusEnergy/issues/1851).)
 
 ## 2.4.1 (2026-10-03)

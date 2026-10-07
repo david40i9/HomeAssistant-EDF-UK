@@ -34,6 +34,21 @@ One set per EDF account.
 
 The payment, statement and reward sensors update hourly. Addresses, names and referral codes are deliberately not fetched.
 
+## Flextras (free hours)
+
+From EDF's Flextras scheme, read from the same endpoints EDF's app uses. Accounts that never joined Flextras show the member sensor as off and nothing booked. Read-only: book and change hours in the EDF app (changes are allowed until 11:59pm on the Thursday before the weekend).
+
+| Entity | Type | What it shows | Useful attributes |
+|---|---|---|---|
+| EDF Flextras Member ({account}) | binary sensor | On while you're registered for Flextras | `registration_date`, `power_perks_signup_date`, `tastecard_activation_date`, `bonus_hours_awarded`, `bonus_hours_claimed`, `opted_out` |
+| EDF Flextras Hours Left ({account}) | sensor (h) | Free hours you still have to book | `hours_booked`, `booked_hours`, `bonus_hours_remaining`, `challenge_hours_remaining`, `entitlements`, `next_expiry`, `days_until_expiry`, `bookable_days` |
+| EDF Weekend Saver Available ({account}) | binary sensor | On if you can sign up for Weekend Saver | `blockers` (EDF's reasons if not), `excluded_by_tariff` |
+| EDF Free Electricity ({account}) | calendar | Your booked free hours as events (back-to-back hours are joined) | |
+| EDF Free Electricity Active ({account}) | binary sensor | On during a booked free hour | `current_start`, `current_end`, `next_start`, `next_end` |
+| EDF Next Free Electricity ({account}) | sensor (timestamp) | Start of the current or next booked free hour | `end`, `duration_in_minutes`, `is_active` |
+
+Unused challenge hours aren't simply lost: EDF books them for you at a time of its choosing close to expiry, so `days_until_expiry` is worth watching. Power Perks session times aren't available: EDF only announces those by text message.
+
 ## Tariffs and contracts
 
 One set per meter point (MPAN/MPRN).

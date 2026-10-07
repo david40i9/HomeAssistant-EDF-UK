@@ -90,7 +90,8 @@ SOFTWARE.
 
 --------------------------------------------------------------------------------
 
-Some fixes are based on HomeAssistant-EDFEnergy by stevekirtley, which is
+Some fixes, and the Flextras support (api_client/flextras.py, coordinators/flextras.py,
+account/flextras.py), are based on HomeAssistant-EDFEnergy by stevekirtley, which is
 licensed under the MIT License:
 
     https://github.com/stevekirtley/HomeAssistant-EDFEnergy
